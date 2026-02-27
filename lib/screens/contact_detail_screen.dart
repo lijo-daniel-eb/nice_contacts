@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,13 +19,36 @@ class ContactDetailScreen extends StatefulWidget {
 class _ContactDetailScreenState extends State<ContactDetailScreen> {
   final _prefsService = PreferencesService();
   late bool _isFavourite;
+  late Contact _currentContact;
 
-  Contact get contact => widget.contact;
+  Contact get contact => _currentContact;
 
   @override
   void initState() {
     super.initState();
+    _currentContact = widget.contact;
     _isFavourite = _prefsService.isFavourite(contact.id);
+  }
+
+  Future<void> _editContact() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditContactScreen(contact: contact)),
+    );
+
+    if (!mounted) return;
+
+    if (result == 'deleted') {
+      // Contact was deleted — pop back to the list
+      Navigator.pop(context, 'deleted');
+      return;
+    }
+
+    if (result is Contact) {
+      setState(() {
+        _currentContact = result;
+      });
+    }
   }
 
   Future<void> _makeCall(String number) async {
@@ -130,6 +154,21 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               ),
             ),
             actions: [
+              IconButton(
+                onPressed: _editContact,
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
               IconButton(
                 onPressed: _toggleFavourite,
                 icon: Container(

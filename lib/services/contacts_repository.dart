@@ -34,7 +34,7 @@ class ContactsRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!await FlutterContacts.requestPermission(readonly: true)) {
+      if (!await FlutterContacts.requestPermission()) {
         _permissionDenied = true;
         _isLoading = false;
         notifyListeners();
