@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:my_contacts/screens/contacts_screen.dart';
+import 'package:my_contacts/screens/home_screen.dart';
+import 'package:my_contacts/services/preferences_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PreferencesService().init();
   runApp(const MyApp());
 }
 
@@ -15,7 +18,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
+          seedColor: Color(PreferencesService().getAccentColor()),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
@@ -23,14 +26,23 @@ class MyApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
+          seedColor: Color(PreferencesService().getAccentColor()),
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      themeMode: ThemeMode.system,
-      home: const ContactsScreen(),
+      themeMode: _getThemeMode(),
+      home: const HomeScreen(),
     );
+  }
+
+  ThemeMode _getThemeMode() {
+    final mode = PreferencesService().getThemeMode();
+    return switch (mode) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
   }
 }

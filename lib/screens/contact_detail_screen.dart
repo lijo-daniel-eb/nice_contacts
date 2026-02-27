@@ -1,12 +1,102 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
-class ContactDetailScreen extends StatelessWidget {
+class ContactDetailScreen extends StatefulWidget {
   final Contact contact;
 
   const ContactDetailScreen({super.key, required this.contact});
+
+  @override
+  State<ContactDetailScreen> createState() => _ContactDetailScreenState();
+}
+
+class _ContactDetailScreenState extends State<ContactDetailScreen> {
+  final _prefsService = PreferencesService();
+  late bool _isFavourite;
+
+  Contact get contact => widget.contact;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFavourite = _prefsService.isFavourite(contact.id);
+  }
+
+  Future<void> _makeCall(String number) async {
+    await _prefsService.addRecent(contact.id, contact.displayName, 'call');
+    final uri = Uri(scheme: 'tel', path: number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _sendSms(String number) async {
+    await _prefsService.addRecent(contact.id, contact.displayName, 'message');
+    final uri = Uri(scheme: 'sms', path: number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _sendEmail(String email) async {
+    await _prefsService.addRecent(contact.id, contact.displayName, 'email');
+    final uri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _openWhatsApp(String number) async {
+    await _prefsService.addRecent(contact.id, contact.displayName, 'whatsapp');
+    final cleanNumber = number.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('https://wa.me/$cleanNumber');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _shareContact() async {
+    final buffer = StringBuffer();
+    buffer.writeln(contact.displayName);
+    for (final phone in contact.phones) {
+      buffer.writeln('Phone: ${phone.number}');
+    }
+    for (final email in contact.emails) {
+      buffer.writeln('Email: ${email.address}');
+    }
+    if (contact.organizations.isNotEmpty) {
+      buffer.writeln('Company: ${contact.organizations.first.company}');
+    }
+    await Share.share(buffer.toString());
+  }
+
+  Future<void> _toggleFavourite() async {
+    await _prefsService.toggleFavourite(contact.id);
+    setState(() {
+      _isFavourite = !_isFavourite;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isFavourite
+                ? '${contact.displayName} added to favourites'
+                : '${contact.displayName} removed from favourites',
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +129,43 @@ class ContactDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+            actions: [
+              IconButton(
+                onPressed: _toggleFavourite,
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _isFavourite
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: _isFavourite
+                        ? const Color(0xFFFFA62E)
+                        : Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _shareContact,
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.share_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -57,7 +184,6 @@ class ContactDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const SizedBox(height: 30),
-                      // Avatar
                       Hero(
                         tag: 'avatar-${contact.id}',
                         child: ContactAvatar(
@@ -68,7 +194,6 @@ class ContactDetailScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      // Name
                       Text(
                         contact.displayName,
                         style: theme.textTheme.headlineSmall?.copyWith(
@@ -105,6 +230,7 @@ class ContactDetailScreen extends StatelessWidget {
                       icon: Icons.call_rounded,
                       label: 'Call',
                       color: const Color(0xFF4CAF50),
+                      onTap: () => _makeCall(contact.phones.first.number),
                     ),
                   if (contact.phones.isNotEmpty)
                     _buildQuickAction(
@@ -112,6 +238,15 @@ class ContactDetailScreen extends StatelessWidget {
                       icon: Icons.message_rounded,
                       label: 'Message',
                       color: const Color(0xFF2196F3),
+                      onTap: () => _sendSms(contact.phones.first.number),
+                    ),
+                  if (contact.phones.isNotEmpty)
+                    _buildQuickAction(
+                      context,
+                      icon: Icons.chat_rounded,
+                      label: 'WhatsApp',
+                      color: const Color(0xFF25D366),
+                      onTap: () => _openWhatsApp(contact.phones.first.number),
                     ),
                   if (contact.emails.isNotEmpty)
                     _buildQuickAction(
@@ -119,12 +254,14 @@ class ContactDetailScreen extends StatelessWidget {
                       icon: Icons.email_rounded,
                       label: 'Email',
                       color: const Color(0xFFFF9800),
+                      onTap: () => _sendEmail(contact.emails.first.address),
                     ),
                   _buildQuickAction(
                     context,
                     icon: Icons.share_rounded,
                     label: 'Share',
                     color: colorScheme.tertiary,
+                    onTap: _shareContact,
                   ),
                 ],
               ),
@@ -137,38 +274,18 @@ class ContactDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Column(
                 children: [
-                  // Phone numbers
+                  // Phone numbers with call/message actions
                   if (contact.phones.isNotEmpty)
-                    _buildInfoCard(
+                    _buildPhoneCard(
                       context,
-                      title: 'Phone Numbers',
-                      icon: Icons.phone_rounded,
-                      items: contact.phones
-                          .map(
-                            (p) => _InfoItem(
-                              label: _phoneLabel(p.label),
-                              value: p.number,
-                            ),
-                          )
-                          .toList(),
                       colorScheme: colorScheme,
                       theme: theme,
                     ),
 
-                  // Emails
+                  // Emails with send action
                   if (contact.emails.isNotEmpty)
-                    _buildInfoCard(
+                    _buildEmailCard(
                       context,
-                      title: 'Email Addresses',
-                      icon: Icons.email_rounded,
-                      items: contact.emails
-                          .map(
-                            (e) => _InfoItem(
-                              label: _emailLabel(e.label),
-                              value: e.address,
-                            ),
-                          )
-                          .toList(),
                       colorScheme: colorScheme,
                       theme: theme,
                     ),
@@ -209,6 +326,51 @@ class ContactDetailScreen extends StatelessWidget {
                       theme: theme,
                     ),
 
+                  // Websites
+                  if (contact.websites.isNotEmpty)
+                    _buildInfoCard(
+                      context,
+                      title: 'Websites',
+                      icon: Icons.language_rounded,
+                      items: contact.websites
+                          .map((w) => _InfoItem(label: 'Website', value: w.url))
+                          .toList(),
+                      colorScheme: colorScheme,
+                      theme: theme,
+                      onItemTap: (item) async {
+                        var url = item.value;
+                        if (!url.startsWith('http')) url = 'https://$url';
+                        final uri = Uri.parse(url);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      },
+                    ),
+
+                  // Events (birthdays, anniversaries)
+                  if (contact.events.isNotEmpty)
+                    _buildInfoCard(
+                      context,
+                      title: 'Events',
+                      icon: Icons.cake_rounded,
+                      items: contact.events.map((e) {
+                        final label = switch (e.label) {
+                          EventLabel.birthday => 'Birthday',
+                          EventLabel.anniversary => 'Anniversary',
+                          _ => 'Event',
+                        };
+                        final dateStr =
+                            '${e.month}/${e.day}'
+                            '${e.year != null ? '/${e.year}' : ''}';
+                        return _InfoItem(label: label, value: dateStr);
+                      }).toList(),
+                      colorScheme: colorScheme,
+                      theme: theme,
+                    ),
+
                   // Notes
                   if (contact.notes.isNotEmpty)
                     _buildInfoCard(
@@ -232,42 +394,8 @@ class ContactDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickAction(
+  Widget _buildPhoneCard(
     BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(icon, color: color, size: 26),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required List<_InfoItem> items,
     required ColorScheme colorScheme,
     required ThemeData theme,
   }) {
@@ -283,7 +411,300 @@ class ContactDetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              children: [
+                Icon(Icons.phone_rounded, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Phone Numbers',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...contact.phones.asMap().entries.map((entry) {
+            final phone = entry.value;
+            final isLast = entry.key == contact.phones.length - 1;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onLongPress: () {
+                            Clipboard.setData(
+                              ClipboardData(text: phone.number),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Copied "${phone.number}"'),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _phoneLabel(phone.label),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                phone.number,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _iconActionButton(
+                        icon: Icons.call_rounded,
+                        color: const Color(0xFF4CAF50),
+                        tooltip: 'Call',
+                        onTap: () => _makeCall(phone.number),
+                      ),
+                      const SizedBox(width: 8),
+                      _iconActionButton(
+                        icon: Icons.message_rounded,
+                        color: const Color(0xFF2196F3),
+                        tooltip: 'Message',
+                        onTap: () => _sendSms(phone.number),
+                      ),
+                      const SizedBox(width: 8),
+                      _iconActionButton(
+                        icon: Icons.chat_rounded,
+                        color: const Color(0xFF25D366),
+                        tooltip: 'WhatsApp',
+                        onTap: () => _openWhatsApp(phone.number),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailCard(
+    BuildContext context, {
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              children: [
+                Icon(Icons.email_rounded, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Email Addresses',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...contact.emails.asMap().entries.map((entry) {
+            final email = entry.value;
+            final isLast = entry.key == contact.emails.length - 1;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onLongPress: () {
+                            Clipboard.setData(
+                              ClipboardData(text: email.address),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Copied "${email.address}"'),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _emailLabel(email.label),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                email.address,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _iconActionButton(
+                        icon: Icons.send_rounded,
+                        color: const Color(0xFFFF9800),
+                        tooltip: 'Send email',
+                        onTap: () => _sendEmail(email.address),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconActionButton({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required List<_InfoItem> items,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    void Function(_InfoItem item)? onItemTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             child: Row(
@@ -301,13 +722,13 @@ class ContactDetailScreen extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          // Card items
           ...items.asMap().entries.map((entry) {
             final item = entry.value;
             final isLast = entry.key == items.length - 1;
             return Column(
               children: [
                 InkWell(
+                  onTap: onItemTap != null ? () => onItemTap(item) : null,
                   onLongPress: () {
                     Clipboard.setData(ClipboardData(text: item.value));
                     ScaffoldMessenger.of(context).showSnackBar(
