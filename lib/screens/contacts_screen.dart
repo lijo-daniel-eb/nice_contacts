@@ -46,32 +46,46 @@ class _ContactsScreenState extends State<ContactsScreen>
       return;
     }
 
-    final contacts = await FlutterContacts.getContacts(
-      withProperties: true,
-      withPhoto: true,
-      withThumbnail: true,
-    );
+    // Phase 1: Load contacts with properties only (fast — no image data)
+    final contacts = await FlutterContacts.getContacts(withProperties: true);
 
     setState(() {
       _allContacts = contacts;
-      _filteredContacts = contacts;
+      _filteredContacts = _searchController.text.isEmpty
+          ? contacts
+          : _applyFilter(contacts, _searchController.text);
       _isLoading = false;
     });
     _animController.forward();
+
+    // Phase 2: Load thumbnails in background for avatar display
+    final contactsWithThumbs = await FlutterContacts.getContacts(
+      withProperties: true,
+      withThumbnail: true,
+    );
+
+    if (mounted) {
+      setState(() {
+        _allContacts = contactsWithThumbs;
+        _filteredContacts = _searchController.text.isEmpty
+            ? contactsWithThumbs
+            : _applyFilter(contactsWithThumbs, _searchController.text);
+      });
+    }
   }
 
   void _filterContacts(String query) {
     setState(() {
-      if (query.isEmpty) {
-        _filteredContacts = _allContacts;
-      } else {
-        _filteredContacts = _allContacts.where((contact) {
-          final name = contact.displayName.toLowerCase();
-          final search = query.toLowerCase();
-          return name.contains(search);
-        }).toList();
-      }
+      _filteredContacts = _applyFilter(_allContacts, query);
     });
+  }
+
+  List<Contact> _applyFilter(List<Contact> contacts, String query) {
+    if (query.isEmpty) return contacts;
+    final search = query.toLowerCase();
+    return contacts.where((contact) {
+      return contact.displayName.toLowerCase().contains(search);
+    }).toList();
   }
 
   // Group contacts alphabetically
@@ -495,8 +509,7 @@ class _ContactsScreenState extends State<ContactsScreen>
             Navigator.push(
               context,
               PageRouteBuilder(
-                pageBuilder: (_, _, _) =>
-                    ContactDetailScreen(contact: contact),
+                pageBuilder: (_, _, _) => ContactDetailScreen(contact: contact),
                 transitionsBuilder: (_, animation, _, child) {
                   return FadeTransition(
                     opacity: animation,
