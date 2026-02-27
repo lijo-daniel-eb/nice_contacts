@@ -451,7 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Made with Flutter',
+              'Developer: Lijo Jolly',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
