@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 
@@ -15,6 +16,7 @@ class RecentsScreen extends StatefulWidget {
 class _RecentsScreenState extends State<RecentsScreen>
     with AutomaticKeepAliveClientMixin {
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   List<_RecentEntry> _recentEntries = [];
   List<_FrequentEntry> _frequentEntries = [];
   bool _isLoading = true;
@@ -26,25 +28,23 @@ class _RecentsScreenState extends State<RecentsScreen>
   @override
   void initState() {
     super.initState();
+    _repo.addListener(_onRepoUpdated);
     _loadData();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadData();
+  void dispose() {
+    _repo.removeListener(_onRepoUpdated);
+    super.dispose();
+  }
+
+  void _onRepoUpdated() {
+    if (mounted) _loadData();
   }
 
   Future<void> _loadData() async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    final allContacts = await FlutterContacts.getContacts(
-      withProperties: true,
-      withThumbnail: true,
-    );
+    await _repo.ensureLoaded();
+    final allContacts = _repo.contacts;
     final contactMap = {for (final c in allContacts) c.id: c};
 
     // Load recents

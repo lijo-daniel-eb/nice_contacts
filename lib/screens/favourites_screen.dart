@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 
@@ -14,6 +15,7 @@ class FavouritesScreen extends StatefulWidget {
 class FavouritesScreenState extends State<FavouritesScreen>
     with AutomaticKeepAliveClientMixin {
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   List<Contact> _favouriteContacts = [];
   bool _isLoading = true;
 
@@ -26,28 +28,35 @@ class FavouritesScreenState extends State<FavouritesScreen>
   @override
   void initState() {
     super.initState();
+    _repo.addListener(_onRepoUpdated);
     _loadFavourites();
   }
 
-  Future<void> _loadFavourites() async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) {
-      setState(() => _isLoading = false);
-      return;
-    }
+  @override
+  void dispose() {
+    _repo.removeListener(_onRepoUpdated);
+    super.dispose();
+  }
 
+  void _onRepoUpdated() {
+    if (mounted) _loadFavourites();
+  }
+
+  Future<void> _loadFavourites() async {
     final favIds = _prefsService.getFavourites();
     if (favIds.isEmpty) {
-      setState(() {
-        _favouriteContacts = [];
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _favouriteContacts = [];
+          _isLoading = false;
+        });
+      }
       return;
     }
 
-    final allContacts = await FlutterContacts.getContacts(
-      withProperties: true,
-      withThumbnail: true,
-    );
+    // Use cached contacts from the shared repository
+    await _repo.ensureLoaded();
+    final allContacts = _repo.contacts;
 
     final favContacts = allContacts
         .where((c) => favIds.contains(c.id))

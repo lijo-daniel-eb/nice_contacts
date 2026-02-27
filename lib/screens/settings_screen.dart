@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen>
     with AutomaticKeepAliveClientMixin {
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   int _totalContacts = 0;
   int _withPhone = 0;
   int _withEmail = 0;
@@ -22,12 +24,23 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void initState() {
     super.initState();
+    _repo.addListener(_onRepoUpdated);
     _loadStats();
   }
 
+  @override
+  void dispose() {
+    _repo.removeListener(_onRepoUpdated);
+    super.dispose();
+  }
+
+  void _onRepoUpdated() {
+    if (mounted) _loadStats();
+  }
+
   Future<void> _loadStats() async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) return;
-    final contacts = await FlutterContacts.getContacts(withProperties: true);
+    await _repo.ensureLoaded();
+    final contacts = _repo.contacts;
     if (mounted) {
       setState(() {
         _totalContacts = contacts.length;

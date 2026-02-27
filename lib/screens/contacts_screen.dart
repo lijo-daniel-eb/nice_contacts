@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,10 +26,18 @@ class ContactsScreenState extends State<ContactsScreen>
   bool _permissionDenied = false;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final Map<String, GlobalKey> _sectionKeys = {};
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   bool _isSearching = false;
   late AnimationController _animController;
+
+  // Flat list items for ListView.builder
+  List<_ListItem> _flatItems = [];
+  // Section letter → flat-list index (for alphabet jump)
+  Map<String, int> _sectionIndices = {};
+
+  static const double _sectionHeaderHeight = 54.0;
+  static const double _contactTileHeight = 72.0;
 
   @override
   bool get wantKeepAlive => true;
@@ -40,57 +49,44 @@ class ContactsScreenState extends State<ContactsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
+    _repo.addListener(_onRepoUpdated);
     _fetchContacts();
   }
 
   @override
   void dispose() {
+    _repo.removeListener(_onRepoUpdated);
     _searchController.dispose();
     _scrollController.dispose();
     _animController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchContacts() async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) {
-      setState(() {
-        _permissionDenied = true;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Phase 1: Load contacts with properties only (fast — no image data)
-    final contacts = await FlutterContacts.getContacts(withProperties: true);
-
+  void _onRepoUpdated() {
+    if (!mounted) return;
+    final contacts = _repo.contacts;
     setState(() {
       _allContacts = contacts;
       _filteredContacts = _searchController.text.isEmpty
           ? contacts
           : _applyFilter(contacts, _searchController.text);
-      _isLoading = false;
+      _isLoading = _repo.isLoading && !_repo.hasLoaded;
+      _permissionDenied = _repo.permissionDenied;
+      _rebuildFlatList();
     });
-    _animController.forward();
-
-    // Phase 2: Load thumbnails in background for avatar display
-    final contactsWithThumbs = await FlutterContacts.getContacts(
-      withProperties: true,
-      withThumbnail: true,
-    );
-
-    if (mounted) {
-      setState(() {
-        _allContacts = contactsWithThumbs;
-        _filteredContacts = _searchController.text.isEmpty
-            ? contactsWithThumbs
-            : _applyFilter(contactsWithThumbs, _searchController.text);
-      });
+    if (_repo.hasLoaded && !_animController.isCompleted) {
+      _animController.forward();
     }
+  }
+
+  Future<void> _fetchContacts() async {
+    await _repo.refresh();
   }
 
   void _filterContacts(String query) {
     setState(() {
       _filteredContacts = _applyFilter(_allContacts, query);
+      _rebuildFlatList();
     });
   }
 
@@ -121,6 +117,24 @@ class ContactsScreenState extends State<ContactsScreen>
         return a.compareTo(b);
       });
     return {for (final key in sortedKeys) key: grouped[key]!};
+  }
+
+  /// Build a flat list of section headers + contact items for ListView.builder.
+  void _rebuildFlatList() {
+    final grouped = _groupContacts();
+    final items = <_ListItem>[];
+    final indices = <String, int>{};
+
+    for (final entry in grouped.entries) {
+      indices[entry.key] = items.length;
+      items.add(_ListItem(type: _ListItemType.header, letter: entry.key));
+      for (final contact in entry.value) {
+        items.add(_ListItem(type: _ListItemType.contact, contact: contact));
+      }
+    }
+
+    _flatItems = items;
+    _sectionIndices = indices;
   }
 
   @override
@@ -186,7 +200,7 @@ class ContactsScreenState extends State<ContactsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'My Contacts',
+                'AI Contacts',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.onSurface,
@@ -398,50 +412,56 @@ class ContactsScreenState extends State<ContactsScreen>
   }
 
   void _scrollToSection(String letter) {
-    final key = _sectionKeys[letter];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        alignment: 0.0,
-      );
+    final targetIndex = _sectionIndices[letter];
+    if (targetIndex == null) return;
+
+    // Calculate pixel offset: sum heights of all items before this index
+    double offset = 0;
+    for (int i = 0; i < targetIndex; i++) {
+      offset += _flatItems[i].type == _ListItemType.header
+          ? _sectionHeaderHeight
+          : _contactTileHeight;
     }
+
+    _scrollController.animateTo(
+      offset.clamp(0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Widget _buildContactList(ThemeData theme, ColorScheme colorScheme) {
-    final grouped = _groupContacts();
-    final alphabet = grouped.keys.where((k) => k != '#').toList()..sort();
+    if (_flatItems.isEmpty) _rebuildFlatList();
 
-    // Ensure section keys exist for all groups
-    for (final key in grouped.keys) {
-      _sectionKeys.putIfAbsent(key, () => GlobalKey());
-    }
+    final alphabet = _sectionIndices.keys.where((k) => k != '#').toList()
+      ..sort();
 
     return Row(
       children: [
-        // Main list
+        // Main list — lazy via ListView.builder
         Expanded(
           child: RefreshIndicator(
             onRefresh: _fetchContacts,
             color: colorScheme.primary,
-            child: SingleChildScrollView(
+            child: ListView.builder(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: grouped.entries.map((entry) {
-                  return _buildSection(
-                    entry.key,
-                    entry.value,
-                    theme,
-                    colorScheme,
-                  );
-                }).toList(),
-              ),
+              itemCount: _flatItems.length,
+              itemExtentBuilder: (index, __) {
+                return _flatItems[index].type == _ListItemType.header
+                    ? _sectionHeaderHeight
+                    : _contactTileHeight;
+              },
+              itemBuilder: (context, index) {
+                final item = _flatItems[index];
+                if (item.type == _ListItemType.header) {
+                  return _buildSectionHeader(item.letter!, colorScheme);
+                }
+                return _buildContactTile(item.contact!, theme, colorScheme);
+              },
             ),
           ),
         ),
@@ -482,56 +502,38 @@ class ContactsScreenState extends State<ContactsScreen>
     );
   }
 
-  Widget _buildSection(
-    String letter,
-    List<Contact> contacts,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return Column(
-      key: _sectionKeys[letter],
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section header
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    letter,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.primary,
-                    ),
-                  ),
+  Widget _buildSectionHeader(String letter, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                letter,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  height: 1,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        // Contacts in this section
-        ...contacts.asMap().entries.map((entry) {
-          final index = entry.key;
-          final contact = entry.value;
-          return _buildContactTile(contact, index, theme, colorScheme);
-        }),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -551,7 +553,6 @@ class ContactsScreenState extends State<ContactsScreen>
 
   Widget _buildContactTile(
     Contact contact,
-    int index,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -653,7 +654,8 @@ class ContactsScreenState extends State<ContactsScreen>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (phone.isNotEmpty) ...[
+                        if (phone.isNotEmpty &&
+                            _prefsService.getShowPhoneInList()) ...[
                           const SizedBox(height: 2),
                           Text(
                             phone,
@@ -696,4 +698,16 @@ class ContactsScreenState extends State<ContactsScreen>
       ),
     );
   }
+}
+
+// ─── Helper types for flat list ───
+
+enum _ListItemType { header, contact }
+
+class _ListItem {
+  final _ListItemType type;
+  final String? letter; // for headers
+  final Contact? contact; // for contact rows
+
+  _ListItem({required this.type, this.letter, this.contact});
 }

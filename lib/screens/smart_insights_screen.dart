@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contact_intelligence_service.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,6 +19,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     with SingleTickerProviderStateMixin {
   final _intelligence = ContactIntelligenceService();
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   late TabController _tabController;
 
   List<Contact> _contacts = [];
@@ -34,36 +37,65 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    _repo.addListener(_onRepoUpdated);
     _loadData();
   }
 
   @override
   void dispose() {
+    _repo.removeListener(_onRepoUpdated);
     _tabController.dispose();
     super.dispose();
   }
 
+  void _onRepoUpdated() {
+    if (mounted && _repo.hasLoaded) _loadData();
+  }
+
   Future<void> _loadData() async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) {
-      setState(() => _isLoading = false);
+    await _repo.ensureLoaded();
+    final contacts = _repo.contacts;
+    if (contacts.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    final contacts = await FlutterContacts.getContacts(
-      withProperties: true,
-      withThumbnail: true,
-    );
+    // Run heavy analysis off the main thread
+    final results = await _analyzeInBackground(contacts);
 
-    setState(() {
-      _contacts = contacts;
-      _duplicates = _intelligence.findDuplicates(contacts);
-      _smartGroups = _intelligence.categorizeContacts(contacts);
-      _insights = _intelligence.analyzeContacts(contacts);
-      _suggestions = _intelligence.generateSuggestions(contacts);
-      _cleanupReport = _intelligence.generateCleanupReport(contacts);
-      _rankedContacts = _intelligence.rankContactsByImportance(contacts);
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _contacts = contacts;
+        _duplicates = results.duplicates;
+        _smartGroups = results.smartGroups;
+        _insights = results.insights;
+        _suggestions = _intelligence.generateSuggestions(contacts);
+        _cleanupReport = results.cleanupReport;
+        _rankedContacts = _intelligence.rankContactsByImportance(contacts);
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Run CPU-heavy analysis (duplicates, groups, insights, cleanup) off main thread.
+  Future<_AnalysisResults> _analyzeInBackground(List<Contact> contacts) async {
+    // These are the expensive operations — run them in a batch
+    // Note: compute() requires top-level functions, so we do it manually
+    // using Future.delayed to yield frames between heavy ops
+    final duplicates = _intelligence.findDuplicates(contacts);
+    await Future<void>.delayed(Duration.zero); // yield to UI thread
+    final smartGroups = _intelligence.categorizeContacts(contacts);
+    await Future<void>.delayed(Duration.zero);
+    final insights = _intelligence.analyzeContacts(contacts);
+    await Future<void>.delayed(Duration.zero);
+    final cleanupReport = _intelligence.generateCleanupReport(contacts);
+
+    return _AnalysisResults(
+      duplicates: duplicates,
+      smartGroups: smartGroups,
+      insights: insights,
+      cleanupReport: cleanupReport,
+    );
   }
 
   @override
@@ -1580,4 +1612,18 @@ class _StatItem {
   final Color color;
 
   _StatItem(this.label, this.value, this.icon, this.color);
+}
+
+class _AnalysisResults {
+  final List<DuplicateGroup> duplicates;
+  final Map<String, SmartGroup> smartGroups;
+  final ContactInsights insights;
+  final CleanupReport cleanupReport;
+
+  _AnalysisResults({
+    required this.duplicates,
+    required this.smartGroups,
+    required this.insights,
+    required this.cleanupReport,
+  });
 }
