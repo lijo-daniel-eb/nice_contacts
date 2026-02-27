@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
@@ -30,6 +32,7 @@ class ContactsScreenState extends State<ContactsScreen>
   final _repo = ContactsRepository();
   bool _isSearching = false;
   late AnimationController _animController;
+  Timer? _debounce;
 
   // Flat list items for ListView.builder
   List<_ListItem> _flatItems = [];
@@ -55,6 +58,7 @@ class ContactsScreenState extends State<ContactsScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _repo.removeListener(_onRepoUpdated);
     _searchController.dispose();
     _scrollController.dispose();
@@ -238,8 +242,12 @@ class ContactsScreenState extends State<ContactsScreen>
         child: TextField(
           controller: _searchController,
           onChanged: (value) {
-            _filterContacts(value);
             setState(() => _isSearching = value.isNotEmpty);
+            // Debounce: avoid rebuilding 700+ item list on every keystroke
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 200), () {
+              _filterContacts(value);
+            });
           },
           decoration: InputDecoration(
             hintText: 'Search contacts...',
@@ -257,6 +265,7 @@ class ContactsScreenState extends State<ContactsScreen>
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                     onPressed: () {
+                      _debounce?.cancel();
                       _searchController.clear();
                       _filterContacts('');
                       setState(() => _isSearching = false);
@@ -288,28 +297,93 @@ class ContactsScreenState extends State<ContactsScreen>
   }
 
   Widget _buildLoadingState(ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: colorScheme.primary,
+    // Shimmer skeleton — shows placeholder rows so the user sees instant structure
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: 12,
+      itemBuilder: (context, index) {
+        // Every 4th item is a section header placeholder
+        if (index % 5 == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+            child: Row(
+              children: [
+                _shimmerBox(32, 32, 8, colorScheme),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+                  ),
+                ),
+              ],
             ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              _shimmerCircle(52, colorScheme),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _shimmerBox(14, 140 + (index % 3) * 30.0, 6, colorScheme),
+                    const SizedBox(height: 8),
+                    _shimmerBox(10, 100, 4, colorScheme),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Loading contacts...',
-            style: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 16,
-            ),
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox(
+    double height,
+    double width,
+    double radius,
+    ColorScheme colorScheme,
+  ) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 0.7),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Container(
+          height: height,
+          width: width,
+          decoration: BoxDecoration(
+            color: colorScheme.onSurface.withValues(alpha: value * 0.1),
+            borderRadius: BorderRadius.circular(radius),
           ),
-        ],
-      ),
+        );
+      },
+      onEnd: () {},
+    );
+  }
+
+  Widget _shimmerCircle(double size, ColorScheme colorScheme) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 0.7),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: colorScheme.onSurface.withValues(alpha: value * 0.1),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
+      onEnd: () {},
     );
   }
 

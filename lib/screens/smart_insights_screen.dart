@@ -77,25 +77,10 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     }
   }
 
-  /// Run CPU-heavy analysis (duplicates, groups, insights, cleanup) off main thread.
+  /// Run CPU-heavy analysis (duplicates, groups, insights, cleanup) off main thread
+  /// using a real isolate via compute() — prevents UI jank with 700+ contacts.
   Future<_AnalysisResults> _analyzeInBackground(List<Contact> contacts) async {
-    // These are the expensive operations — run them in a batch
-    // Note: compute() requires top-level functions, so we do it manually
-    // using Future.delayed to yield frames between heavy ops
-    final duplicates = _intelligence.findDuplicates(contacts);
-    await Future<void>.delayed(Duration.zero); // yield to UI thread
-    final smartGroups = _intelligence.categorizeContacts(contacts);
-    await Future<void>.delayed(Duration.zero);
-    final insights = _intelligence.analyzeContacts(contacts);
-    await Future<void>.delayed(Duration.zero);
-    final cleanupReport = _intelligence.generateCleanupReport(contacts);
-
-    return _AnalysisResults(
-      duplicates: duplicates,
-      smartGroups: smartGroups,
-      insights: insights,
-      cleanupReport: cleanupReport,
-    );
+    return compute(_runAnalysis, contacts);
   }
 
   @override
@@ -1603,6 +1588,24 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       ),
     );
   }
+}
+
+/// Top-level function for compute() — runs in a separate isolate.
+/// This avoids blocking the UI thread during heavy O(n²) duplicate detection
+/// and contact analysis with 700+ contacts.
+_AnalysisResults _runAnalysis(List<Contact> contacts) {
+  final intelligence = ContactIntelligenceService();
+  final duplicates = intelligence.findDuplicates(contacts);
+  final smartGroups = intelligence.categorizeContacts(contacts);
+  final insights = intelligence.analyzeContacts(contacts);
+  final cleanupReport = intelligence.generateCleanupReport(contacts);
+
+  return _AnalysisResults(
+    duplicates: duplicates,
+    smartGroups: smartGroups,
+    insights: insights,
+    cleanupReport: cleanupReport,
+  );
 }
 
 class _StatItem {
