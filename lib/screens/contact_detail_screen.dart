@@ -1,7 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
+import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,6 +21,7 @@ class ContactDetailScreen extends StatefulWidget {
 
 class _ContactDetailScreenState extends State<ContactDetailScreen> {
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
   late bool _isFavourite;
   late Contact _currentContact;
 
@@ -29,6 +32,24 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     super.initState();
     _currentContact = widget.contact;
     _isFavourite = _prefsService.isFavourite(contact.id);
+    _repo.addListener(_onRepoUpdated);
+    // Kick off high-res photo load
+    _repo.getHighResPhoto(contact.id);
+  }
+
+  @override
+  void dispose() {
+    _repo.removeListener(_onRepoUpdated);
+    super.dispose();
+  }
+
+  void _onRepoUpdated() {
+    if (!mounted) return;
+    // Stop listening once the high-res photo is loaded
+    if (_repo.hasHighResPhoto(contact.id)) {
+      _repo.removeListener(_onRepoUpdated);
+    }
+    setState(() {});
   }
 
   Future<void> _editContact() async {
@@ -123,6 +144,132 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     }
   }
 
+  /// Build the header with either a full-bleed profile photo or gradient + avatar.
+  Widget _buildHeaderBackground(ThemeData theme, ColorScheme colorScheme) {
+    // Try high-res photo first, then thumbnail, then inline thumbnail.
+    final Uint8List? photo =
+        _repo.getHighResPhoto(contact.id) ??
+        _repo.getThumbnail(contact.id) ??
+        contact.thumbnail;
+    final hasPhoto = photo != null && photo.isNotEmpty;
+
+    final primaryColor = ContactAvatar.colorFromName(contact.displayName);
+
+    if (hasPhoto) {
+      // Full-bleed photo header
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(photo, fit: BoxFit.cover, width: double.infinity),
+          // Dark gradient overlay for readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.1),
+                  Colors.black.withValues(alpha: 0.65),
+                ],
+                stops: const [0.3, 1.0],
+              ),
+            ),
+          ),
+          // Name and company at the bottom
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  contact.displayName,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 8,
+                        color: Colors.black.withValues(alpha: 0.5),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (contact.organizations.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    contact.organizations.first.company,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shadows: [
+                        Shadow(
+                          blurRadius: 6,
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Fallback: gradient + avatar (no photo available)
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary,
+            colorScheme.tertiary,
+            colorScheme.primary.withValues(alpha: 0.8),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 30),
+            Hero(
+              tag: 'avatar-${contact.id}',
+              child: ContactAvatar(
+                contact: contact,
+                radius: 52,
+                fontSize: 36,
+                showBorder: true,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              contact.displayName,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            if (contact.organizations.isNotEmpty)
+              Text(
+                contact.organizations.first.company,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -135,7 +282,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
         slivers: [
           // Gradient App Bar
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 340,
             pinned: true,
             stretch: true,
             backgroundColor: colorScheme.primary,
@@ -207,53 +354,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               const SizedBox(width: 4),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.tertiary,
-                      colorScheme.primary.withValues(alpha: 0.8),
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 30),
-                      Hero(
-                        tag: 'avatar-${contact.id}',
-                        child: ContactAvatar(
-                          contact: contact,
-                          radius: 52,
-                          fontSize: 36,
-                          showBorder: true,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        contact.displayName,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      if (contact.organizations.isNotEmpty)
-                        Text(
-                          contact.organizations.first.company,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+              background: _buildHeaderBackground(theme, colorScheme),
             ),
           ),
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -30,12 +32,18 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _repo.removeListener(_onRepoUpdated);
     super.dispose();
   }
 
+  Timer? _debounce;
+
   void _onRepoUpdated() {
-    if (mounted) _loadStats();
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) _loadStats();
+    });
   }
 
   Future<void> _loadStats() async {

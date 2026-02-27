@@ -69,21 +69,41 @@ class ContactAvatar extends StatefulWidget {
 
 class _ContactAvatarState extends State<ContactAvatar> {
   final _repo = ContactsRepository();
+  bool _listening = false;
 
   @override
   void initState() {
     super.initState();
-    _repo.addListener(_onRepoUpdated);
+    _startListeningIfNeeded();
   }
 
   @override
   void dispose() {
-    _repo.removeListener(_onRepoUpdated);
+    if (_listening) {
+      _repo.removeListener(_onRepoUpdated);
+    }
     super.dispose();
   }
 
+  /// Only listen to the repo while this avatar's thumbnail is not yet cached.
+  void _startListeningIfNeeded() {
+    final hasThumb =
+        widget.contact.thumbnail != null &&
+        widget.contact.thumbnail!.isNotEmpty;
+    if (!hasThumb && !_repo.hasThumbnail(widget.contact.id) && !_listening) {
+      _listening = true;
+      _repo.addListener(_onRepoUpdated);
+    }
+  }
+
   void _onRepoUpdated() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // Once thumbnail is available, stop listening and do one final rebuild.
+    if (_repo.hasThumbnail(widget.contact.id)) {
+      _repo.removeListener(_onRepoUpdated);
+      _listening = false;
+    }
+    setState(() {});
   }
 
   String _getInitials() {

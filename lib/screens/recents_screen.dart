@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
@@ -35,12 +37,18 @@ class _RecentsScreenState extends State<RecentsScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _repo.removeListener(_onRepoUpdated);
     super.dispose();
   }
 
+  Timer? _debounce;
+
   void _onRepoUpdated() {
-    if (mounted) _loadData();
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) _loadData();
+    });
   }
 
   Future<void> _loadData() async {

@@ -48,14 +48,20 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     super.dispose();
   }
 
+  bool _analysisRunning = false;
+
   void _onRepoUpdated() {
-    if (mounted && _repo.hasLoaded) _loadData();
+    if (mounted && _repo.hasLoaded && !_analysisRunning) _loadData();
   }
 
   Future<void> _loadData() async {
+    if (_analysisRunning) return;
+    _analysisRunning = true;
+
     await _repo.ensureLoaded();
     final contacts = _repo.contacts;
     if (contacts.isEmpty) {
+      _analysisRunning = false;
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -63,6 +69,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     // Run heavy analysis off the main thread
     final results = await _analyzeInBackground(contacts);
 
+    _analysisRunning = false;
     if (mounted) {
       setState(() {
         _contacts = contacts;

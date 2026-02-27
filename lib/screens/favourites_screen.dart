@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FavouritesScreen extends StatefulWidget {
   const FavouritesScreen({super.key});
@@ -34,12 +37,18 @@ class FavouritesScreenState extends State<FavouritesScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _repo.removeListener(_onRepoUpdated);
     super.dispose();
   }
 
+  Timer? _debounce;
+
   void _onRepoUpdated() {
-    if (mounted) _loadFavourites();
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) _loadFavourites();
+    });
   }
 
   Future<void> _loadFavourites() async {
@@ -206,6 +215,20 @@ class FavouritesScreenState extends State<FavouritesScreen>
     );
   }
 
+  Future<void> _makeCall(String number) async {
+    final uri = Uri(scheme: 'tel', path: number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _sendSms(String number) async {
+    final uri = Uri(scheme: 'sms', path: number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   Widget _buildFavouriteTile(
     Contact contact,
     ThemeData theme,
@@ -213,67 +236,111 @@ class FavouritesScreenState extends State<FavouritesScreen>
   ) {
     final phone = contact.phones.isNotEmpty ? contact.phones.first.number : '';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
+    return Dismissible(
+      key: ValueKey('fav-${contact.id}'),
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF4CAF50),
           borderRadius: BorderRadius.circular(14),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ContactDetailScreen(contact: contact),
-              ),
-            );
-            _loadFavourites();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              children: [
-                ContactAvatar(contact: contact, radius: 26),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        contact.displayName,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (phone.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        child: const Icon(Icons.call_rounded, color: Colors.white, size: 28),
+      ),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2196F3),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.message_rounded, color: Colors.white, size: 28),
+      ),
+      confirmDismiss: (direction) async {
+        if (phone.isEmpty) return false;
+        if (direction == DismissDirection.startToEnd) {
+          await _prefsService.addRecent(
+            contact.id,
+            contact.displayName,
+            'call',
+          );
+          await _makeCall(phone);
+        } else {
+          await _prefsService.addRecent(
+            contact.id,
+            contact.displayName,
+            'message',
+          );
+          await _sendSms(phone);
+        }
+        return false;
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ContactDetailScreen(contact: contact),
+                ),
+              );
+              _loadFavourites();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Row(
+                children: [
+                  ContactAvatar(contact: contact, radius: 26),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          phone,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          contact.displayName,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (phone.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            phone,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.star_rounded,
-                    color: Color(0xFFFFA62E),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFFFA62E),
+                    ),
+                    onPressed: () async {
+                      await _prefsService.toggleFavourite(contact.id);
+                      _loadFavourites();
+                    },
+                    tooltip: 'Remove from favourites',
                   ),
-                  onPressed: () async {
-                    await _prefsService.toggleFavourite(contact.id);
-                    _loadFavourites();
-                  },
-                  tooltip: 'Remove from favourites',
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

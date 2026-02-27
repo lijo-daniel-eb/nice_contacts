@@ -12,6 +12,9 @@ class ContactsRepository extends ChangeNotifier {
   factory ContactsRepository() => _instance;
   ContactsRepository._internal();
 
+  /// Debounce timer to batch thumbnail notifications.
+  Timer? _thumbnailNotifyTimer;
+
   List<Contact> _contacts = [];
   bool _isLoading = false;
   bool _hasLoaded = false;
@@ -71,6 +74,43 @@ class ContactsRepository extends ChangeNotifier {
     }
   }
 
+  /// High-res photo cache: contactId → photo bytes.
+  final Map<String, Uint8List?> _photoCache = {};
+  final Set<String> _photoLoading = {};
+
+  /// Get a cached high-res photo for a contact. Returns null if not yet loaded.
+  /// Automatically triggers a lazy fetch if not cached.
+  Uint8List? getHighResPhoto(String contactId) {
+    if (_photoCache.containsKey(contactId)) {
+      return _photoCache[contactId];
+    }
+    _loadHighResPhoto(contactId);
+    return null;
+  }
+
+  /// Load a contact's high-res photo in the background.
+  Future<void> _loadHighResPhoto(String contactId) async {
+    if (_photoCache.containsKey(contactId)) return;
+    if (_photoLoading.contains(contactId)) return;
+    _photoLoading.add(contactId);
+
+    try {
+      final full = await FlutterContacts.getContact(contactId, withPhoto: true);
+      _photoCache[contactId] = full?.photo;
+      _photoLoading.remove(contactId);
+      _scheduleThumbnailNotify();
+    } catch (_) {
+      _photoLoading.remove(contactId);
+      _photoCache[contactId] = null;
+    }
+  }
+
+  /// Whether a high-res photo has been loaded (or attempted) for the given contact.
+  bool hasHighResPhoto(String contactId) => _photoCache.containsKey(contactId);
+
+  /// Whether a thumbnail has been loaded (or attempted) for the given contact.
+  bool hasThumbnail(String contactId) => _thumbnailCache.containsKey(contactId);
+
   /// Get a cached thumbnail for a contact. Returns null if not yet loaded.
   /// Automatically triggers a lazy fetch if not cached.
   Uint8List? getThumbnail(String contactId) {
@@ -95,7 +135,7 @@ class ContactsRepository extends ChangeNotifier {
       );
       _thumbnailCache[contactId] = full?.thumbnail;
       _thumbnailLoading.remove(contactId);
-      notifyListeners();
+      _scheduleThumbnailNotify();
     } catch (_) {
       _thumbnailLoading.remove(contactId);
       _thumbnailCache[contactId] = null; // mark as tried
@@ -120,6 +160,14 @@ class ContactsRepository extends ChangeNotifier {
         _loadThumbnail(c.id);
       }
     }
+  }
+
+  /// Coalesce rapid thumbnail-loaded notifications into a single notify.
+  void _scheduleThumbnailNotify() {
+    _thumbnailNotifyTimer?.cancel();
+    _thumbnailNotifyTimer = Timer(const Duration(milliseconds: 100), () {
+      notifyListeners();
+    });
   }
 
   /// Soft refresh if stale (older than [maxAge]).
