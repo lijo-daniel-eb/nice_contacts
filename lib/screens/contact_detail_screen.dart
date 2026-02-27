@@ -6,6 +6,7 @@ import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ContactDetailScreen extends StatefulWidget {
   final Contact contact;
@@ -282,7 +283,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   if (contact.phones.isNotEmpty)
                     _buildQuickAction(
                       context,
-                      icon: Icons.chat_rounded,
+                      icon: FontAwesomeIcons.whatsapp,
                       label: 'WhatsApp',
                       color: const Color(0xFF25D366),
                       onTap: () => _openWhatsApp(contact.phones.first.number),
@@ -533,7 +534,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       ),
                       const SizedBox(width: 8),
                       _iconActionButton(
-                        icon: Icons.chat_rounded,
+                        icon: FontAwesomeIcons.whatsapp,
                         color: const Color(0xFF25D366),
                         tooltip: 'WhatsApp',
                         onTap: () => _openWhatsApp(phone.number),

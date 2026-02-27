@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Screen (or bottom sheet) for editing an existing contact or creating a new one.
 class EditContactScreen extends StatefulWidget {
@@ -967,7 +968,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
       icon = Icons.sim_card_rounded;
       typeName = 'SIM Card';
     } else if (accountType.contains('whatsapp')) {
-      icon = Icons.chat_rounded;
+      icon = FontAwesomeIcons.whatsapp;
       typeName = 'WhatsApp';
     } else if (accountType.contains('telegram')) {
       icon = Icons.send_rounded;

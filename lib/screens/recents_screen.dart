@@ -5,6 +5,7 @@ import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class RecentsScreen extends StatefulWidget {
   const RecentsScreen({super.key});
@@ -326,7 +327,7 @@ class _RecentsScreenState extends State<RecentsScreen>
       'call' => Icons.call_rounded,
       'message' => Icons.message_rounded,
       'email' => Icons.email_rounded,
-      'whatsapp' => Icons.chat_rounded,
+      'whatsapp' => FontAwesomeIcons.whatsapp,
       _ => Icons.touch_app_rounded,
     };
     final actionColor = switch (entry.recent.action) {
