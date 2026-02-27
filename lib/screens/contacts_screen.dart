@@ -9,11 +9,16 @@ class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
 
   @override
-  State<ContactsScreen> createState() => _ContactsScreenState();
+  State<ContactsScreen> createState() => ContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen>
+class ContactsScreenState extends State<ContactsScreen>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  /// Call this from outside to trigger a UI refresh (e.g. favourites changed).
+  void refresh() {
+    if (mounted) setState(() {});
+  }
+
   List<Contact> _allContacts = [];
   List<Contact> _filteredContacts = [];
   bool _isLoading = true;

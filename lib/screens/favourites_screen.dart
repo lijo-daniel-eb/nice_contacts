@@ -8,14 +8,17 @@ class FavouritesScreen extends StatefulWidget {
   const FavouritesScreen({super.key});
 
   @override
-  State<FavouritesScreen> createState() => _FavouritesScreenState();
+  State<FavouritesScreen> createState() => FavouritesScreenState();
 }
 
-class _FavouritesScreenState extends State<FavouritesScreen>
+class FavouritesScreenState extends State<FavouritesScreen>
     with AutomaticKeepAliveClientMixin {
   final _prefsService = PreferencesService();
   List<Contact> _favouriteContacts = [];
   bool _isLoading = true;
+
+  /// Call this from outside to refresh the favourites list.
+  void refresh() => _loadFavourites();
 
   @override
   bool get wantKeepAlive => true;
@@ -23,12 +26,6 @@ class _FavouritesScreenState extends State<FavouritesScreen>
   @override
   void initState() {
     super.initState();
-    _loadFavourites();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
     _loadFavourites();
   }
 

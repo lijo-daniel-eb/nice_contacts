@@ -15,12 +15,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late int _currentIndex;
   final _prefsService = PreferencesService();
+  final _favouritesKey = GlobalKey<FavouritesScreenState>();
+  final _contactsKey = GlobalKey<ContactsScreenState>();
 
-  final List<Widget> _screens = const [
-    ContactsScreen(),
-    FavouritesScreen(),
-    RecentsScreen(),
-    SettingsScreen(),
+  late final List<Widget> _screens = [
+    ContactsScreen(key: _contactsKey),
+    FavouritesScreen(key: _favouritesKey),
+    const RecentsScreen(),
+    const SettingsScreen(),
   ];
 
   @override
@@ -39,6 +41,11 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
+          if (index == 0) {
+            _contactsKey.currentState?.refresh();
+          } else if (index == 1) {
+            _favouritesKey.currentState?.refresh();
+          }
         },
         indicatorColor: colorScheme.primaryContainer,
         backgroundColor: colorScheme.surface,
