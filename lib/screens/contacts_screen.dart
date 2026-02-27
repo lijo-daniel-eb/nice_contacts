@@ -420,18 +420,23 @@ class _ContactsScreenState extends State<ContactsScreen>
           child: RefreshIndicator(
             onRefresh: _fetchContacts,
             color: colorScheme.primary,
-            child: ListView.builder(
+            child: SingleChildScrollView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               padding: const EdgeInsets.only(bottom: 20),
-              itemCount: grouped.length,
-              itemBuilder: (context, sectionIndex) {
-                final letter = grouped.keys.elementAt(sectionIndex);
-                final contacts = grouped[letter]!;
-                return _buildSection(letter, contacts, theme, colorScheme);
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: grouped.entries.map((entry) {
+                  return _buildSection(
+                    entry.key,
+                    entry.value,
+                    theme,
+                    colorScheme,
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),
