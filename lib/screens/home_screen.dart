@@ -3,6 +3,7 @@ import 'package:my_contacts/screens/contacts_screen.dart';
 import 'package:my_contacts/screens/favourites_screen.dart';
 import 'package:my_contacts/screens/recents_screen.dart';
 import 'package:my_contacts/screens/settings_screen.dart';
+import 'package:my_contacts/screens/smart_insights_screen.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ContactsScreen(key: _contactsKey),
     FavouritesScreen(key: _favouritesKey),
     const RecentsScreen(),
+    const SmartInsightsScreen(),
     const SettingsScreen(),
   ];
 
@@ -69,6 +71,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.history_rounded),
             selectedIcon: Icon(Icons.history_rounded),
             label: 'Recents',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.psychology_outlined),
+            selectedIcon: Icon(Icons.psychology_rounded),
+            label: 'Smart',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
