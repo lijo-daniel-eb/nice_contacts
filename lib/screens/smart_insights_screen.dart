@@ -27,11 +27,13 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   Map<String, SmartGroup> _smartGroups = {};
   ContactInsights? _insights;
   List<SuggestedAction> _suggestions = [];
+  CleanupReport? _cleanupReport;
+  List<RankedContact> _rankedContacts = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadData();
   }
 
@@ -58,6 +60,8 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       _smartGroups = _intelligence.categorizeContacts(contacts);
       _insights = _intelligence.analyzeContacts(contacts);
       _suggestions = _intelligence.generateSuggestions(contacts);
+      _cleanupReport = _intelligence.generateCleanupReport(contacts);
+      _rankedContacts = _intelligence.rankContactsByImportance(contacts);
       _isLoading = false;
     });
   }
@@ -86,6 +90,8 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 fontWeight: FontWeight.w600,
               ),
               unselectedLabelStyle: const TextStyle(fontSize: 12),
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(
                   icon: const Icon(Icons.auto_awesome_rounded, size: 20),
@@ -103,6 +109,14 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   icon: const Icon(Icons.insights_rounded, size: 20),
                   text: 'Insights',
                 ),
+                Tab(
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 20),
+                  text: 'Cleanup',
+                ),
+                Tab(
+                  icon: const Icon(Icons.star_rounded, size: 20),
+                  text: 'Important',
+                ),
               ],
             ),
             Expanded(
@@ -115,6 +129,8 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                         _buildDuplicatesTab(theme, colorScheme),
                         _buildGroupsTab(theme, colorScheme),
                         _buildInsightsTab(theme, colorScheme),
+                        _buildCleanupTab(theme, colorScheme),
+                        _buildImportantTab(theme, colorScheme),
                       ],
                     ),
             ),
@@ -1059,6 +1075,470 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  //  CLEANUP TAB
+  // ─────────────────────────────────────────────
+
+  Widget _buildCleanupTab(ThemeData theme, ColorScheme colorScheme) {
+    final report = _cleanupReport;
+    if (report == null) {
+      return _buildEmptyState(
+        title: 'No Data',
+        subtitle: 'Unable to analyse contacts',
+        icon: Icons.error_outline_rounded,
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Health score card
+        _buildHealthScoreCard(report, theme, colorScheme),
+        const SizedBox(height: 16),
+        if (report.suggestions.isEmpty)
+          _buildEmptyState(
+            title: 'All Clean!',
+            subtitle: 'Your contacts are in great shape',
+            icon: Icons.check_circle_outline_rounded,
+          )
+        else
+          ...report.suggestions.map(
+            (s) => _buildCleanupSuggestionCard(s, theme, colorScheme),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHealthScoreCard(
+    CleanupReport report,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final percentage = (report.healthScore * 100).round();
+    final healthColor = percentage >= 80
+        ? Colors.green
+        : percentage >= 50
+        ? Colors.orange
+        : Colors.red;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            healthColor.withValues(alpha: 0.15),
+            healthColor.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: healthColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            height: 80,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: CircularProgressIndicator(
+                    value: report.healthScore,
+                    strokeWidth: 8,
+                    backgroundColor: healthColor.withValues(alpha: 0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(healthColor),
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Text(
+                  '$percentage%',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: healthColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Contact Health',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${report.totalContacts} contacts analysed',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                if (report.totalIssues > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${report.totalIssues} issue${report.totalIssues > 1 ? 's' : ''} found',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: healthColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCleanupSuggestionCard(
+    CleanupSuggestion suggestion,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final severityColor = switch (suggestion.severity) {
+      CleanupSeverity.high => Colors.red,
+      CleanupSeverity.medium => Colors.orange,
+      CleanupSeverity.low => Colors.blue,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: severityColor.withValues(alpha: 0.3)),
+      ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: severityColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Text(suggestion.icon, style: const TextStyle(fontSize: 22)),
+          ),
+          title: Text(
+            suggestion.title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          subtitle: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: severityColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  suggestion.severity.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: severityColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  suggestion.subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          children: [
+            ...suggestion.contacts
+                .take(10)
+                .map(
+                  (contact) => ListTile(
+                    dense: true,
+                    leading: ContactAvatar(contact: contact, radius: 18),
+                    title: Text(
+                      contact.displayName,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      contact.phones.isNotEmpty
+                          ? contact.phones.first.number
+                          : contact.emails.isNotEmpty
+                          ? contact.emails.first.address
+                          : 'No details',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    onTap: () => _navigateToContact(contact),
+                  ),
+                ),
+            if (suggestion.contacts.length > 10)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  '+ ${suggestion.contacts.length - 10} more',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  //  IMPORTANT CONTACTS TAB
+  // ─────────────────────────────────────────────
+
+  Widget _buildImportantTab(ThemeData theme, ColorScheme colorScheme) {
+    if (_rankedContacts.isEmpty) {
+      return _buildEmptyState(
+        title: 'No Rankings Yet',
+        subtitle: 'Interact with contacts to build importance rankings',
+        icon: Icons.stars_rounded,
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Summary card
+        _buildImportanceSummaryCard(theme, colorScheme),
+        const SizedBox(height: 16),
+        // Top contacts list
+        ...List.generate(
+          _rankedContacts.length.clamp(0, 20),
+          (index) => _buildRankedContactCard(
+            _rankedContacts[index],
+            index + 1,
+            theme,
+            colorScheme,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImportanceSummaryCard(ThemeData theme, ColorScheme colorScheme) {
+    final top = _rankedContacts.length;
+    final avgScore = top > 0
+        ? _rankedContacts.fold<double>(0, (sum, r) => sum + r.importanceScore) /
+              top
+        : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFFFD700).withValues(alpha: 0.2),
+            const Color(0xFFFFA500).withValues(alpha: 0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.emoji_events_rounded,
+              color: Color(0xFFFFD700),
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Important Contacts',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$top ranked contacts \u2022 Avg score: ${avgScore.toStringAsFixed(1)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankedContactCard(
+    RankedContact ranked,
+    int position,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final medalColor = switch (position) {
+      1 => const Color(0xFFFFD700),
+      2 => const Color(0xFFC0C0C0),
+      3 => const Color(0xFFCD7F32),
+      _ => colorScheme.onSurface.withValues(alpha: 0.3),
+    };
+
+    final scoreColor = ranked.importanceScore >= 70
+        ? Colors.green
+        : ranked.importanceScore >= 40
+        ? Colors.orange
+        : Colors.grey;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: position <= 3
+            ? Border.all(color: medalColor.withValues(alpha: 0.4))
+            : null,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _navigateToContact(ranked.contact),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              // Position badge
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: medalColor.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '#$position',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: medalColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ContactAvatar(contact: ranked.contact, radius: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            ranked.contact.displayName,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (ranked.isFavourite) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.favorite,
+                            size: 14,
+                            color: Colors.red.shade400,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Wrap(
+                      spacing: 6,
+                      children: ranked.reasons
+                          .take(3)
+                          .map(
+                            (r) => Text(
+                              r,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              // Score badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  ranked.importanceScore.round().toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: scoreColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

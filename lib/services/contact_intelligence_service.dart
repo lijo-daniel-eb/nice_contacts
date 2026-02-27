@@ -512,8 +512,227 @@ class ContactIntelligenceService {
     suggestions.sort((a, b) => b.priority.compareTo(a.priority));
     return suggestions;
   }
-}
 
+  // ─────────────────────────────────────────────
+  //  AUTO CLEANUP SUGGESTIONS
+  // ─────────────────────────────────────────────
+
+  /// Analyze contacts and suggest cleanup actions.
+  CleanupReport generateCleanupReport(List<Contact> contacts) {
+    final noPhone = <Contact>[];
+    final noEmail = <Contact>[];
+    final noName = <Contact>[];
+    final nameOnly = <Contact>[]; // Only have a name, nothing else
+    final possiblyInactive = <Contact>[]; // No phone, no email, no org
+
+    for (final contact in contacts) {
+      final hasPhone = contact.phones.isNotEmpty;
+      final hasEmail = contact.emails.isNotEmpty;
+      final hasOrg = contact.organizations.isNotEmpty;
+      final hasAddress = contact.addresses.isNotEmpty;
+
+      if (!hasPhone) noPhone.add(contact);
+      if (!hasEmail) noEmail.add(contact);
+
+      if (contact.displayName.trim().isEmpty) {
+        noName.add(contact);
+      }
+
+      if (!hasPhone && !hasEmail && !hasOrg && !hasAddress) {
+        possiblyInactive.add(contact);
+      }
+
+      if (hasPhone == false &&
+          hasEmail == false &&
+          hasOrg == false &&
+          hasAddress == false &&
+          contact.displayName.isNotEmpty) {
+        nameOnly.add(contact);
+      }
+    }
+
+    // Build cleanup suggestions
+    final suggestions = <CleanupSuggestion>[];
+
+    if (noPhone.isNotEmpty) {
+      suggestions.add(
+        CleanupSuggestion(
+          icon: '📵',
+          title:
+              '${noPhone.length} contact${noPhone.length > 1 ? 's' : ''} with no phone number',
+          subtitle: 'These contacts cannot be called or messaged',
+          contacts: noPhone,
+          severity: noPhone.length > 10
+              ? CleanupSeverity.high
+              : noPhone.length > 5
+              ? CleanupSeverity.medium
+              : CleanupSeverity.low,
+          type: CleanupType.noPhone,
+        ),
+      );
+    }
+
+    if (noEmail.isNotEmpty) {
+      suggestions.add(
+        CleanupSuggestion(
+          icon: '📧',
+          title:
+              '${noEmail.length} contact${noEmail.length > 1 ? 's' : ''} with no email',
+          subtitle: 'Consider adding email addresses for these contacts',
+          contacts: noEmail,
+          severity: CleanupSeverity.low,
+          type: CleanupType.noEmail,
+        ),
+      );
+    }
+
+    if (nameOnly.isNotEmpty) {
+      suggestions.add(
+        CleanupSuggestion(
+          icon: '👻',
+          title:
+              '${nameOnly.length} contact${nameOnly.length > 1 ? 's' : ''} with only a name',
+          subtitle:
+              'No phone, email, or other info — consider removing or updating',
+          contacts: nameOnly,
+          severity: CleanupSeverity.high,
+          type: CleanupType.nameOnly,
+        ),
+      );
+    }
+
+    if (noName.isNotEmpty) {
+      suggestions.add(
+        CleanupSuggestion(
+          icon: '❓',
+          title:
+              '${noName.length} contact${noName.length > 1 ? 's' : ''} with no name',
+          subtitle: 'These contacts have no display name set',
+          contacts: noName,
+          severity: CleanupSeverity.high,
+          type: CleanupType.noName,
+        ),
+      );
+    }
+
+    if (possiblyInactive.isNotEmpty) {
+      suggestions.add(
+        CleanupSuggestion(
+          icon: '💤',
+          title:
+              '${possiblyInactive.length} possibly inactive contact${possiblyInactive.length > 1 ? 's' : ''}',
+          subtitle:
+              'No phone, email, organization, or address — likely outdated',
+          contacts: possiblyInactive,
+          severity: possiblyInactive.length > 5
+              ? CleanupSeverity.high
+              : CleanupSeverity.medium,
+          type: CleanupType.inactive,
+        ),
+      );
+    }
+
+    // Overall health score
+    final totalIssues =
+        noPhone.length +
+        nameOnly.length +
+        noName.length +
+        possiblyInactive.length;
+    final healthScore = contacts.isEmpty
+        ? 1.0
+        : max(0.0, 1.0 - (totalIssues / (contacts.length * 2)));
+
+    suggestions.sort((a, b) => b.severity.index.compareTo(a.severity.index));
+
+    return CleanupReport(
+      suggestions: suggestions,
+      totalContacts: contacts.length,
+      totalIssues: totalIssues,
+      healthScore: healthScore,
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  //  CONTACT IMPORTANCE RANKING
+  // ─────────────────────────────────────────────
+
+  /// Rank contacts by importance using multiple signals.
+  List<RankedContact> rankContactsByImportance(List<Contact> contacts) {
+    final recents = _prefsService.getRecents();
+    final favs = _prefsService.getFavourites();
+    final freqMap = _prefsService.getFrequentlyContacted();
+    final now = DateTime.now();
+
+    // Build recency map: most recent interaction per contact
+    final Map<String, DateTime> lastInteraction = {};
+    for (final r in recents) {
+      if (!lastInteraction.containsKey(r.contactId) ||
+          r.timestamp.isAfter(lastInteraction[r.contactId]!)) {
+        lastInteraction[r.contactId] = r.timestamp;
+      }
+    }
+
+    final ranked = <RankedContact>[];
+
+    for (final contact in contacts) {
+      double score = 0;
+      final reasons = <String>[];
+
+      // 1. Frequency score (0–35 pts)
+      final freq = freqMap[contact.id] ?? 0;
+      if (freq > 0) {
+        final freqScore = min(35.0, freq * 5.0);
+        score += freqScore;
+        reasons.add('$freq interactions');
+      }
+
+      // 2. Recency score (0–30 pts)
+      if (lastInteraction.containsKey(contact.id)) {
+        final daysSince = now.difference(lastInteraction[contact.id]!).inDays;
+        final recencyScore = max(0.0, 30.0 - (daysSince * 0.5));
+        score += recencyScore;
+        if (daysSince == 0) {
+          reasons.add('Contacted today');
+        } else if (daysSince <= 7) {
+          reasons.add('Contacted this week');
+        } else if (daysSince <= 30) {
+          reasons.add('Contacted this month');
+        }
+      }
+
+      // 3. Favourite bonus (20 pts)
+      if (favs.contains(contact.id)) {
+        score += 20;
+        reasons.add('Favourite');
+      }
+
+      // 4. Completeness bonus (0–10 pts)
+      final completeness = _completenessScore(contact);
+      score += completeness * 10;
+
+      // 5. Has interaction history (5 pts)
+      if (recents.any((r) => r.contactId == contact.id)) {
+        score += 5;
+      }
+
+      if (score > 0) {
+        ranked.add(
+          RankedContact(
+            contact: contact,
+            importanceScore: min(100, score),
+            reasons: reasons,
+            frequency: freq,
+            isFavourite: favs.contains(contact.id),
+            lastContacted: lastInteraction[contact.id],
+          ),
+        );
+      }
+    }
+
+    ranked.sort((a, b) => b.importanceScore.compareTo(a.importanceScore));
+    return ranked;
+  }
+}
 // ═══════════════════════════════════════════════
 //  DATA MODELS
 // ═══════════════════════════════════════════════
@@ -589,3 +808,65 @@ class SuggestedAction {
 }
 
 enum SuggestionType { reconnect, birthday, completeInfo, addToFavourites }
+
+// ═══════════════════════════════════════════════
+//  CLEANUP MODELS
+// ═══════════════════════════════════════════════
+
+enum CleanupType { noPhone, noEmail, nameOnly, noName, inactive }
+
+enum CleanupSeverity { low, medium, high }
+
+class CleanupSuggestion {
+  final String icon;
+  final String title;
+  final String subtitle;
+  final List<Contact> contacts;
+  final CleanupSeverity severity;
+  final CleanupType type;
+
+  CleanupSuggestion({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.contacts,
+    required this.severity,
+    required this.type,
+  });
+}
+
+class CleanupReport {
+  final List<CleanupSuggestion> suggestions;
+  final int totalContacts;
+  final int totalIssues;
+  final double healthScore; // 0.0 to 1.0
+
+  CleanupReport({
+    required this.suggestions,
+    required this.totalContacts,
+    required this.totalIssues,
+    required this.healthScore,
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  IMPORTANCE RANKING MODELS
+// ═══════════════════════════════════════════════
+
+class RankedContact {
+  final Contact contact;
+  final double importanceScore; // 0–100
+  final List<String> reasons;
+  final int frequency;
+  final bool isFavourite;
+  final DateTime? lastContacted;
+
+  RankedContact({
+    required this.contact,
+    required this.importanceScore,
+    required this.reasons,
+    required this.frequency,
+    required this.isFavourite,
+    this.lastContacted,
+  });
+}
