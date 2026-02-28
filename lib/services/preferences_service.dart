@@ -116,7 +116,7 @@ class PreferencesService {
   Future<void> setShowPhoneInList(bool show) =>
       _prefs.setBool(_showPhoneInListKey, show);
 
-  int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF6C63FF;
+  int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF1B98E0;
   Future<void> setAccentColor(int color) =>
       _prefs.setInt(_accentColorKey, color);
 }

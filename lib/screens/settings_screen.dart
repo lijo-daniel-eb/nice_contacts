@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -101,29 +102,55 @@ class _SettingsScreenState extends State<SettingsScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [colorScheme.primary, colorScheme.tertiary],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colorScheme.primary.withValues(alpha: 0.7),
+                      colorScheme.tertiary.withValues(alpha: 0.5),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.settings_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.settings_rounded,
-              color: Colors.white,
-              size: 26,
             ),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Settings',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [colorScheme.primary, colorScheme.tertiary],
+                ).createShader(bounds),
+                child: Text(
+                  'Settings',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
@@ -270,12 +297,12 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Widget _buildAccentColorSetting(ThemeData theme, ColorScheme colorScheme) {
     final colors = [
-      (0xFF6C63FF, 'Purple'),
-      (0xFFFF6584, 'Pink'),
+      (0xFF1B98E0, 'Steel Blue'),
+      (0xFFFF6B35, 'Orange'),
       (0xFF4CAF50, 'Green'),
       (0xFFFF9800, 'Orange'),
       (0xFF2196F3, 'Blue'),
-      (0xFFE91E63, 'Rose'),
+      (0xFFD63031, 'Red'),
       (0xFF00BCD4, 'Teal'),
     ];
     final current = _prefsService.getAccentColor();

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -107,11 +109,12 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               unselectedLabelColor: colorScheme.onSurface.withValues(
                 alpha: 0.5,
               ),
-              indicatorColor: colorScheme.primary,
+              indicatorColor: const Color(0xFF4ECDC4),
               indicatorWeight: 3,
+              dividerHeight: 0,
               labelStyle: const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
               unselectedLabelStyle: const TextStyle(fontSize: 12),
               isScrollable: true,
@@ -169,29 +172,52 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF4ECDC4)],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xCC1B98E0), Color(0x994ECDC4)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1B98E0).withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.psychology_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.psychology_rounded,
-              color: Colors.white,
-              size: 26,
             ),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Smart Insights',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFF1B98E0), Color(0xFF4ECDC4)],
+                ).createShader(bounds),
+                child: Text(
+                  'Smart Insights',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
@@ -203,12 +229,18 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
             ],
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _loadData();
-            },
-            icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF4ECDC4).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () {
+                setState(() => _isLoading = true);
+                _loadData();
+              },
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4ECDC4)),
+            ),
           ),
         ],
       ),
@@ -253,9 +285,9 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
     final color = switch (suggestion.type) {
       SuggestionType.reconnect => const Color(0xFF4CAF50),
-      SuggestionType.birthday => const Color(0xFFFF6584),
+      SuggestionType.birthday => const Color(0xFFFF6B35),
       SuggestionType.completeInfo => const Color(0xFFFFA62E),
-      SuggestionType.addToFavourites => const Color(0xFF6C63FF),
+      SuggestionType.addToFavourites => const Color(0xFF1B98E0),
     };
 
     return Card(
@@ -361,7 +393,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Card(
               elevation: 0,
-              color: const Color(0xFFFF6584).withValues(alpha: 0.1),
+              color: const Color(0xFFFF6B35).withValues(alpha: 0.1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -371,7 +403,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   children: [
                     const Icon(
                       Icons.warning_amber_rounded,
-                      color: Color(0xFFFF6584),
+                      color: Color(0xFFFF6B35),
                       size: 28,
                     ),
                     const SizedBox(width: 12),
@@ -380,7 +412,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                         'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFFFF6584),
+                          color: const Color(0xFFFF6B35),
                         ),
                       ),
                     ),
@@ -498,7 +530,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
   Color _getSimilarityColor(double score) {
     if (score >= 0.9) return const Color(0xFFFF4444);
-    if (score >= 0.8) return const Color(0xFFFF6584);
+    if (score >= 0.8) return const Color(0xFFFF6B35);
     return const Color(0xFFFFA62E);
   }
 
@@ -659,9 +691,9 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
   Color _groupColor(String name) {
     return switch (name) {
-      'Work' => const Color(0xFF6C63FF),
+      'Work' => const Color(0xFF1B98E0),
       'Personal' => const Color(0xFF4ECDC4),
-      'Family' => const Color(0xFFFF6584),
+      'Family' => const Color(0xFFFF6B35),
       'Social' => const Color(0xFFFFA62E),
       _ => const Color(0xFF9E9E9E),
     };
@@ -813,7 +845,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         'Total',
         '${ins.totalContacts}',
         Icons.people_rounded,
-        const Color(0xFF6C63FF),
+        const Color(0xFF1B98E0),
       ),
       _StatItem(
         'With Phone',
@@ -837,7 +869,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         'With Photo',
         '${ins.withPhoto}',
         Icons.photo_camera_rounded,
-        const Color(0xFFFF6584),
+        const Color(0xFFFF6B35),
       ),
       _StatItem(
         'With Birthday',

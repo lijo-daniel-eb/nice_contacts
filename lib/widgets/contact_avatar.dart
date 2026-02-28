@@ -25,18 +25,18 @@ class ContactAvatar extends StatefulWidget {
   /// Generate a consistent color from a string (contact name)
   static Color colorFromName(String name) {
     const colors = [
-      Color(0xFF6C63FF), // Purple
-      Color(0xFFFF6584), // Pink
+      Color(0xFF1B98E0), // Steel Blue
+      Color(0xFFFF6B35), // Burnt Orange
       Color(0xFF43E97B), // Green
       Color(0xFFFFA62E), // Orange
       Color(0xFF00C9FF), // Cyan
-      Color(0xFFFC5C7D), // Rose
-      Color(0xFF6A82FB), // Blue
-      Color(0xFFE91E63), // Deep Pink
+      Color(0xFFF25C54), // Coral Red
+      Color(0xFF2D6CDF), // Royal Blue
+      Color(0xFFD63031), // Strong Red
       Color(0xFF00BCD4), // Teal
       Color(0xFFFF5722), // Deep Orange
       Color(0xFF8BC34A), // Light Green
-      Color(0xFF9C27B0), // Purple Deep
+      Color(0xFF0A6ABF), // Deep Navy
     ];
     if (name.isEmpty) return colors[0];
     final hash = name.codeUnits.fold(0, (prev, c) => prev + c);
@@ -45,18 +45,18 @@ class ContactAvatar extends StatefulWidget {
 
   static Color _secondaryColorFromName(String name) {
     const colors = [
-      Color(0xFF8B83FF),
-      Color(0xFFFF8BA7),
+      Color(0xFF4DB8F0),
+      Color(0xFFFF8C42),
       Color(0xFF66F09B),
       Color(0xFFFFBE5C),
       Color(0xFF4DD8FF),
-      Color(0xFFFF8DA1),
-      Color(0xFF8DA5FF),
-      Color(0xFFF06292),
+      Color(0xFFFF9255),
+      Color(0xFF5A8FE8),
+      Color(0xFFE17055),
       Color(0xFF26C6DA),
       Color(0xFFFF8A65),
       Color(0xFFAED581),
-      Color(0xFFBA68C8),
+      Color(0xFF3A8FD6),
     ];
     if (name.isEmpty) return colors[0];
     final hash = name.codeUnits.fold(0, (prev, c) => prev + c);

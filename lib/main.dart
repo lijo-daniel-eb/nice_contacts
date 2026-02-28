@@ -16,28 +16,63 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = Color(PreferencesService().getAccentColor());
     return MaterialApp(
       title: 'AI Contacts',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Color(PreferencesService().getAccentColor()),
-          brightness: Brightness.light,
-        ),
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: accentColor,
+              brightness: Brightness.light,
+            ).copyWith(
+              tertiary: _shiftHue(accentColor, 45),
+              tertiaryContainer: _shiftHue(
+                accentColor,
+                45,
+              ).withValues(alpha: 0.15),
+            ),
         useMaterial3: true,
         fontFamily: 'Roboto',
+        splashFactory: InkSparkle.splashFactory,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Color(PreferencesService().getAccentColor()),
-          brightness: Brightness.dark,
-        ),
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: accentColor,
+              brightness: Brightness.dark,
+            ).copyWith(
+              tertiary: _shiftHue(accentColor, 45),
+              tertiaryContainer: _shiftHue(
+                accentColor,
+                45,
+              ).withValues(alpha: 0.15),
+            ),
         useMaterial3: true,
         fontFamily: 'Roboto',
+        splashFactory: InkSparkle.splashFactory,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       themeMode: _getThemeMode(),
       home: const HomeScreen(),
     );
+  }
+
+  /// Rotate hue of a color by [degrees]
+  static Color _shiftHue(Color color, double degrees) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withHue((hsl.hue + degrees) % 360).toColor();
   }
 
   ThemeMode _getThemeMode() {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -185,29 +186,56 @@ class ContactsScreenState extends State<ContactsScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [colorScheme.primary, colorScheme.tertiary],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1B98E0).withValues(alpha: 0.7),
+                      colorScheme.primary.withValues(alpha: 0.5),
+                      colorScheme.tertiary.withValues(alpha: 0.4),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.contacts_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.contacts_rounded,
-              color: colorScheme.onPrimary,
-              size: 26,
             ),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'AI Contacts',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [colorScheme.primary, colorScheme.tertiary],
+                ).createShader(bounds),
+                child: Text(
+                  'AI Contacts',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
@@ -219,12 +247,18 @@ class ContactsScreenState extends State<ContactsScreen>
             ],
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {
-              _fetchContacts();
-            },
-            icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
-            tooltip: 'Refresh',
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () {
+                _fetchContacts();
+              },
+              icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
+              tooltip: 'Refresh',
+            ),
           ),
         ],
       ),
@@ -238,6 +272,12 @@ class ContactsScreenState extends State<ContactsScreen>
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.primary.withValues(
+              alpha: _isSearching ? 0.4 : 0.0,
+            ),
+            width: 1.5,
+          ),
         ),
         child: TextField(
           controller: _searchController,
@@ -359,7 +399,12 @@ class ContactsScreenState extends State<ContactsScreen>
           height: height,
           width: width,
           decoration: BoxDecoration(
-            color: colorScheme.onSurface.withValues(alpha: value * 0.1),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primary.withValues(alpha: value * 0.08),
+                colorScheme.tertiary.withValues(alpha: value * 0.06),
+              ],
+            ),
             borderRadius: BorderRadius.circular(radius),
           ),
         );
@@ -378,7 +423,12 @@ class ContactsScreenState extends State<ContactsScreen>
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: colorScheme.onSurface.withValues(alpha: value * 0.1),
+            gradient: RadialGradient(
+              colors: [
+                colorScheme.primary.withValues(alpha: value * 0.12),
+                colorScheme.tertiary.withValues(alpha: value * 0.06),
+              ],
+            ),
             shape: BoxShape.circle,
           ),
         );
@@ -397,7 +447,12 @@ class ContactsScreenState extends State<ContactsScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                gradient: RadialGradient(
+                  colors: [
+                    colorScheme.error.withValues(alpha: 0.15),
+                    colorScheme.errorContainer.withValues(alpha: 0.08),
+                  ],
+                ),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -452,7 +507,12 @@ class ContactsScreenState extends State<ContactsScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                gradient: RadialGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.15),
+                    colorScheme.primaryContainer.withValues(alpha: 0.08),
+                  ],
+                ),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -582,17 +642,27 @@ class ContactsScreenState extends State<ContactsScreen>
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colorScheme.primary.withValues(alpha: 0.2),
+                  colorScheme.tertiary.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.15),
+              ),
             ),
             child: Center(
               child: Text(
                 letter,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: colorScheme.primary,
                 ),
@@ -638,22 +708,54 @@ class ContactsScreenState extends State<ContactsScreen>
       background: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50),
-          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 24),
-        child: const Icon(Icons.call_rounded, color: Colors.white, size: 28),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.call_rounded, color: Colors.white, size: 26),
+            SizedBox(width: 6),
+            Text(
+              'Call',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
       secondaryBackground: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFF2196F3),
-          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2D6CDF), Color(0xFF1565C0)],
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
-        child: const Icon(Icons.message_rounded, color: Colors.white, size: 28),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Message',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(width: 6),
+            Icon(Icons.message_rounded, color: Colors.white, size: 26),
+          ],
+        ),
       ),
       confirmDismiss: (direction) async {
         if (phone.isEmpty) return false;
@@ -677,10 +779,12 @@ class ContactsScreenState extends State<ContactsScreen>
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 0.5,
+          shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             onTap: () {
               Navigator.push(
                 context,
@@ -750,12 +854,18 @@ class ContactsScreenState extends State<ContactsScreen>
                       await _prefsService.toggleFavourite(contact.id);
                       setState(() {});
                     },
-                    child: Icon(
-                      isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: isFav
-                          ? const Color(0xFFFFA62E)
-                          : colorScheme.onSurface.withValues(alpha: 0.2),
-                      size: 22,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, anim) =>
+                          ScaleTransition(scale: anim, child: child),
+                      child: Icon(
+                        isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                        key: ValueKey(isFav),
+                        color: isFav
+                            ? const Color(0xFFFFA62E)
+                            : colorScheme.onSurface.withValues(alpha: 0.18),
+                        size: 22,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),

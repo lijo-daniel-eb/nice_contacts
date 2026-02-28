@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -113,29 +114,52 @@ class _RecentsScreenState extends State<RecentsScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00C9FF), Color(0xFF6C63FF)],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xCC00C9FF), Color(0x991B98E0)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00C9FF).withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.history_rounded,
-              color: Colors.white,
-              size: 26,
             ),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Recents',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFF00C9FF), Color(0xFF1B98E0)],
+                ).createShader(bounds),
+                child: Text(
+                  'Recents',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
@@ -148,18 +172,31 @@ class _RecentsScreenState extends State<RecentsScreen>
           ),
           const Spacer(),
           if (_recentEntries.isNotEmpty)
-            IconButton(
-              onPressed: () => _showClearDialog(colorScheme),
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                color: colorScheme.error.withValues(alpha: 0.7),
+            Container(
+              decoration: BoxDecoration(
+                color: colorScheme.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
-              tooltip: 'Clear history',
+              child: IconButton(
+                onPressed: () => _showClearDialog(colorScheme),
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colorScheme.error.withValues(alpha: 0.7),
+                ),
+                tooltip: 'Clear history',
+              ),
             ),
-          IconButton(
-            onPressed: _loadData,
-            icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
-            tooltip: 'Refresh',
+          const SizedBox(width: 4),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C9FF).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF00C9FF)),
+              tooltip: 'Refresh',
+            ),
           ),
         ],
       ),
@@ -187,14 +224,27 @@ class _RecentsScreenState extends State<RecentsScreen>
 
   Widget _tabButton(String label, int index, ColorScheme colorScheme) {
     final isSelected = _selectedTab == index;
+    final tabColors = index == 0
+        ? [const Color(0xFF00C9FF), const Color(0xFF1B98E0)]
+        : [const Color(0xFFFFA62E), const Color(0xFFFF6B35)];
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primary : Colors.transparent,
+          gradient: isSelected ? LinearGradient(colors: tabColors) : null,
+          color: isSelected ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: tabColors.first.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Center(
           child: Text(
@@ -203,7 +253,7 @@ class _RecentsScreenState extends State<RecentsScreen>
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: isSelected
-                  ? colorScheme.onPrimary
+                  ? Colors.white
                   : colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
@@ -296,7 +346,12 @@ class _RecentsScreenState extends State<RecentsScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                gradient: RadialGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.15),
+                    colorScheme.primaryContainer.withValues(alpha: 0.06),
+                  ],
+                ),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -349,10 +404,12 @@ class _RecentsScreenState extends State<RecentsScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 0.5,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: () async {
             await Navigator.push(
               context,
@@ -394,8 +451,13 @@ class _RecentsScreenState extends State<RecentsScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: actionColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      colors: [
+                        actionColor.withValues(alpha: 0.18),
+                        actionColor.withValues(alpha: 0.06),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(actionIcon, color: actionColor, size: 18),
                 ),
@@ -416,10 +478,12 @@ class _RecentsScreenState extends State<RecentsScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 0.5,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: () async {
             await Navigator.push(
               context,
@@ -434,16 +498,30 @@ class _RecentsScreenState extends State<RecentsScreen>
             child: Row(
               children: [
                 // Rank badge
-                SizedBox(
+                Container(
                   width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    gradient: index < 3
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFA62E), Color(0xFFFF6B35)],
+                          )
+                        : null,
+                    color: index < 3
+                        ? null
+                        : colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Center(
                     child: Text(
                       '#${index + 1}',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: index < 3
-                            ? const Color(0xFFFFA62E)
+                            ? Colors.white
                             : colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                     ),

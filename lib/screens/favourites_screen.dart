@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -108,29 +109,52 @@ class FavouritesScreenState extends State<FavouritesScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFFFFA62E), const Color(0xFFFF6584)],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xCCFFA62E), Color(0x99FF6B35)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFA62E).withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.star_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.star_rounded,
-              color: Colors.white,
-              size: 26,
             ),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Favourites',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFA62E), Color(0xFFFF6B35)],
+                ).createShader(bounds),
+                child: Text(
+                  'Favourites',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
@@ -142,10 +166,16 @@ class FavouritesScreenState extends State<FavouritesScreen>
             ],
           ),
           const Spacer(),
-          IconButton(
-            onPressed: _loadFavourites,
-            icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
-            tooltip: 'Refresh',
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFA62E).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _loadFavourites,
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFFFFA62E)),
+              tooltip: 'Refresh',
+            ),
           ),
         ],
       ),
@@ -169,7 +199,12 @@ class FavouritesScreenState extends State<FavouritesScreen>
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFA62E).withValues(alpha: 0.15),
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFFFA62E).withValues(alpha: 0.18),
+                      const Color(0xFFFF6B35).withValues(alpha: 0.06),
+                    ],
+                  ),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -241,22 +276,54 @@ class FavouritesScreenState extends State<FavouritesScreen>
       background: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50),
-          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 24),
-        child: const Icon(Icons.call_rounded, color: Colors.white, size: 28),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.call_rounded, color: Colors.white, size: 26),
+            SizedBox(width: 6),
+            Text(
+              'Call',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
       secondaryBackground: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFF2196F3),
-          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2D6CDF), Color(0xFF1565C0)],
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
-        child: const Icon(Icons.message_rounded, color: Colors.white, size: 28),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Message',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(width: 6),
+            Icon(Icons.message_rounded, color: Colors.white, size: 26),
+          ],
+        ),
       ),
       confirmDismiss: (direction) async {
         if (phone.isEmpty) return false;
@@ -280,10 +347,12 @@ class FavouritesScreenState extends State<FavouritesScreen>
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 0.5,
+          shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             onTap: () async {
               await Navigator.push(
                 context,
