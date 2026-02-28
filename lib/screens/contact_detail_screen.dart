@@ -115,7 +115,18 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
 
   Future<void> _openWhatsApp(String number) async {
     await _prefsService.addRecent(contact.id, contact.displayName, 'whatsapp');
-    final cleanNumber = number.replaceAll(RegExp(r'[^\d+]'), '');
+    // Strip everything except digits and +
+    var cleanNumber = number.replaceAll(RegExp(r'[^\d+]'), '');
+    // If the number doesn't start with + or a country code, assume India (+91)
+    if (!cleanNumber.startsWith('+')) {
+      // If it's a 10-digit local number, prepend 91
+      if (cleanNumber.length == 10) {
+        cleanNumber = '91$cleanNumber';
+      }
+      // If it already starts with 91 and is 12 digits, keep as-is
+    }
+    // Remove any leading + for WhatsApp (it expects digits only)
+    cleanNumber = cleanNumber.replaceAll('+', '');
     // Try opening directly in WhatsApp app first
     final appUri = Uri.parse('whatsapp://send?phone=$cleanNumber');
     if (await canLaunchUrl(appUri)) {
