@@ -100,9 +100,16 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   Future<void> _openWhatsApp(String number) async {
     await _prefsService.addRecent(contact.id, contact.displayName, 'whatsapp');
     final cleanNumber = number.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri.parse('https://wa.me/$cleanNumber');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Try opening directly in WhatsApp app first
+    final appUri = Uri.parse('whatsapp://send?phone=$cleanNumber');
+    if (await canLaunchUrl(appUri)) {
+      await launchUrl(appUri, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback to web link
+      final webUri = Uri.parse('https://wa.me/$cleanNumber');
+      if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
     }
   }
 
