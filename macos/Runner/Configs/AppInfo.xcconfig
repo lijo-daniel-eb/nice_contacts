@@ -8,7 +8,7 @@
 PRODUCT_NAME = my_contacts
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.myContacts
+PRODUCT_BUNDLE_IDENTIFIER = com.lijojolly.myContacts
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.lijojolly. All rights reserved.

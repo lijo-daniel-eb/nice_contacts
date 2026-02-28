@@ -2,6 +2,7 @@
     "chat.tools.terminal.autoApprove": {
         "&": true,
         "dart": true,
-        "flutter": true
+        "flutter": true,
+        "Set-Content": true
     }
 }

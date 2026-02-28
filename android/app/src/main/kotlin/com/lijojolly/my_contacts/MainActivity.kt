@@ -1,4 +1,4 @@
-package com.example.my_contacts
+package com.lijojolly.my_contacts
 
 import io.flutter.embedding.android.FlutterActivity
 
