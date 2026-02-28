@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
+import 'package:my_contacts/screens/fake_call_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
@@ -80,6 +81,20 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
+  }
+
+  void _fakeCall(String number) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) =>
+            FakeCallScreen(contact: contact, phoneNumber: number),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
   }
 
   Future<void> _sendSms(String number) async {
@@ -382,6 +397,14 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   if (contact.phones.isNotEmpty)
                     _buildQuickAction(
                       context,
+                      icon: Icons.phone_callback_rounded,
+                      label: 'Fake Call',
+                      color: const Color(0xFFE91E63),
+                      onTap: () => _fakeCall(contact.phones.first.number),
+                    ),
+                  if (contact.phones.isNotEmpty)
+                    _buildQuickAction(
+                      context,
                       icon: Icons.message_rounded,
                       label: 'Message',
                       color: const Color(0xFF2196F3),
@@ -654,6 +677,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                         color: const Color(0xFF4CAF50),
                         tooltip: 'Call',
                         onTap: () => _makeCall(phone.number),
+                      ),
+                      const SizedBox(width: 8),
+                      _iconActionButton(
+                        icon: Icons.phone_callback_rounded,
+                        color: const Color(0xFFE91E63),
+                        tooltip: 'Fake Call',
+                        onTap: () => _fakeCall(phone.number),
                       ),
                       const SizedBox(width: 8),
                       _iconActionButton(
