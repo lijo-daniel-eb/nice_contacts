@@ -33,12 +33,11 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ContactInsights? _insights;
   List<SuggestedAction> _suggestions = [];
   CleanupReport? _cleanupReport;
-  List<RankedContact> _rankedContacts = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _repo.addListener(_onRepoUpdated);
     _loadData();
   }
@@ -80,7 +79,6 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         _insights = results.insights;
         _suggestions = _intelligence.generateSuggestions(contacts);
         _cleanupReport = results.cleanupReport;
-        _rankedContacts = _intelligence.rankContactsByImportance(contacts);
         _isLoading = false;
       });
     }
@@ -140,10 +138,6 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   icon: const Icon(Icons.cleaning_services_rounded, size: 20),
                   text: 'Cleanup',
                 ),
-                Tab(
-                  icon: const Icon(Icons.star_rounded, size: 20),
-                  text: 'Important',
-                ),
               ],
             ),
             Expanded(
@@ -157,7 +151,6 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                         _buildGroupsTab(theme, colorScheme),
                         _buildInsightsTab(theme, colorScheme),
                         _buildCleanupTab(theme, colorScheme),
-                        _buildImportantTab(theme, colorScheme),
                       ],
                     ),
             ),
@@ -1369,232 +1362,6 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  //  IMPORTANT CONTACTS TAB
-  // ─────────────────────────────────────────────
-
-  Widget _buildImportantTab(ThemeData theme, ColorScheme colorScheme) {
-    if (_rankedContacts.isEmpty) {
-      return _buildEmptyState(
-        title: 'No Rankings Yet',
-        subtitle: 'Interact with contacts to build importance rankings',
-        icon: Icons.stars_rounded,
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Summary card
-        _buildImportanceSummaryCard(theme, colorScheme),
-        const SizedBox(height: 16),
-        // Top contacts list
-        ...List.generate(
-          _rankedContacts.length.clamp(0, 20),
-          (index) => _buildRankedContactCard(
-            _rankedContacts[index],
-            index + 1,
-            theme,
-            colorScheme,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImportanceSummaryCard(ThemeData theme, ColorScheme colorScheme) {
-    final top = _rankedContacts.length;
-    final avgScore = top > 0
-        ? _rankedContacts.fold<double>(0, (sum, r) => sum + r.importanceScore) /
-              top
-        : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFFD700).withValues(alpha: 0.2),
-            const Color(0xFFFFA500).withValues(alpha: 0.1),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.emoji_events_rounded,
-              color: Color(0xFFFFD700),
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Important Contacts',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$top ranked contacts \u2022 Avg score: ${avgScore.toStringAsFixed(1)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankedContactCard(
-    RankedContact ranked,
-    int position,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final medalColor = switch (position) {
-      1 => const Color(0xFFFFD700),
-      2 => const Color(0xFFC0C0C0),
-      3 => const Color(0xFFCD7F32),
-      _ => colorScheme.onSurface.withValues(alpha: 0.3),
-    };
-
-    final scoreColor = ranked.importanceScore >= 70
-        ? Colors.green
-        : ranked.importanceScore >= 40
-        ? Colors.orange
-        : Colors.grey;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: position <= 3
-            ? Border.all(color: medalColor.withValues(alpha: 0.4))
-            : null,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _navigateToContact(ranked.contact),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Position badge
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: medalColor.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '#$position',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: medalColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ContactAvatar(contact: ranked.contact, radius: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            ranked.contact.displayName,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (ranked.isFavourite) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.favorite,
-                            size: 14,
-                            color: Colors.red.shade400,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 6,
-                      children: ranked.reasons
-                          .take(3)
-                          .map(
-                            (r) => Text(
-                              r,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
-              // Score badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: scoreColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  ranked.importanceScore.round().toString(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: scoreColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
