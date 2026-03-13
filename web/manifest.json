@@ -1,6 +1,6 @@
 {
-    "name": "AI Contacts",
-    "short_name": "AI Contacts",
+    "name": "Smart Contacts",
+    "short_name": "Smart Contacts",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

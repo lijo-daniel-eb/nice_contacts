@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
+import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -231,7 +232,7 @@ class ContactsScreenState extends State<ContactsScreen>
                   colors: [colorScheme.primary, colorScheme.tertiary],
                 ).createShader(bounds),
                 child: Text(
-                  'AI Contacts',
+                  'Smart Contacts',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -682,10 +683,7 @@ class ContactsScreenState extends State<ContactsScreen>
   }
 
   Future<void> _makeCall(String number) async {
-    final uri = Uri(scheme: 'tel', path: number);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    await DirectCallService.call(number);
   }
 
   Future<void> _sendSms(String number) async {
