@@ -195,16 +195,6 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                     );
                   },
                 ),
-                _sheetAction(
-                  context: ctx,
-                  icon: Icons.event_rounded,
-                  title: 'Pick Date & Time',
-                  subtitle: 'Set a custom schedule',
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _pickAndScheduleFakeCall(number);
-                  },
-                ),
                 if (next != null)
                   _sheetAction(
                     context: ctx,
@@ -259,40 +249,6 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Fake call scheduled for $pretty')),
     );
-  }
-
-  Future<void> _pickAndScheduleFakeCall(String number) async {
-    final now = DateTime.now();
-    final pickedDate = await showDatePicker(
-      context: context,
-      firstDate: now,
-      initialDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (pickedDate == null || !mounted) return;
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 1))),
-    );
-    if (pickedTime == null || !mounted) return;
-
-    final when = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
-
-    if (when.isBefore(DateTime.now().add(const Duration(seconds: 1)))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick a future time')),
-      );
-      return;
-    }
-
-    await _scheduleFakeCall(number, when);
   }
 
   Future<void> _cancelScheduledFakeCall(int scheduleId) async {

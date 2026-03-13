@@ -7,7 +7,6 @@ import 'package:my_contacts/services/preferences_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PreferencesService().init();
-  await FakeCallSchedulerService().init();
   // Start loading contacts early — all screens share this cache
   ContactsRepository().ensureLoaded();
   runApp(const MyApp());
