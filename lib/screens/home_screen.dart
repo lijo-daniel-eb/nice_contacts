@@ -6,6 +6,7 @@ import 'package:my_contacts/screens/favourites_screen.dart';
 import 'package:my_contacts/screens/recents_screen.dart';
 import 'package:my_contacts/screens/settings_screen.dart';
 import 'package:my_contacts/screens/smart_insights_screen.dart';
+import 'package:my_contacts/services/fake_call_scheduler_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,6 +34,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _currentIndex = _prefsService.getDefaultTab();
+    FakeCallSchedulerService().startDueScheduleWatcher();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FakeCallSchedulerService().processPendingNotificationTap();
+    });
   }
 
   @override

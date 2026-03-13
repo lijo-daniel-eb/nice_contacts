@@ -1,5 +1,5 @@
 name: my_contacts
-description: "A AI based contact app with useful dashboards."
+description: "A smart contact app with useful dashboards."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -40,6 +40,8 @@ dependencies:
   share_plus: ^10.1.4
   intl: ^0.19.0
   font_awesome_flutter: ^10.8.0
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

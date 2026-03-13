@@ -3,10 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/screens/fake_call_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
+import 'package:my_contacts/services/fake_call_scheduler_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,6 +27,7 @@ class ContactDetailScreen extends StatefulWidget {
 class _ContactDetailScreenState extends State<ContactDetailScreen> {
   final _prefsService = PreferencesService();
   final _repo = ContactsRepository();
+  final _fakeCallScheduler = FakeCallSchedulerService();
   late bool _isFavourite;
   late Contact _currentContact;
 
@@ -81,7 +84,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     await DirectCallService.call(number);
   }
 
-  void _fakeCall(String number) {
+  void _startFakeCall(String number) {
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -96,6 +99,207 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
         },
         transitionDuration: const Duration(milliseconds: 300),
       ),
+    );
+  }
+
+  Future<void> _fakeCall(String number) async {
+    final next = await _fakeCallScheduler.getNextScheduledCallFor(
+      contact.id,
+      number,
+    );
+    if (!mounted) return;
+
+    final formattedNext = next == null
+        ? null
+        : DateFormat('EEE, MMM d • h:mm a').format(next.scheduledAt);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+                  child: Text(
+                    'Fake Call Options',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (formattedNext != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    child: Text(
+                      'Next scheduled: $formattedNext',
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                _sheetAction(
+                  context: ctx,
+                  icon: Icons.phone_callback_rounded,
+                  title: 'Start Now',
+                  subtitle: 'Launch fake call screen immediately',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _startFakeCall(number);
+                  },
+                ),
+                _sheetAction(
+                  context: ctx,
+                  icon: Icons.schedule_rounded,
+                  title: 'In 10 seconds',
+                  subtitle: 'Quick trigger',
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _scheduleFakeCall(
+                      number,
+                      DateTime.now().add(const Duration(seconds: 10)),
+                    );
+                  },
+                ),
+                _sheetAction(
+                  context: ctx,
+                  icon: Icons.schedule_rounded,
+                  title: 'In 30 seconds',
+                  subtitle: 'Short delay',
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _scheduleFakeCall(
+                      number,
+                      DateTime.now().add(const Duration(seconds: 30)),
+                    );
+                  },
+                ),
+                _sheetAction(
+                  context: ctx,
+                  icon: Icons.schedule_rounded,
+                  title: 'In 1 minute',
+                  subtitle: 'Good for planning ahead',
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _scheduleFakeCall(
+                      number,
+                      DateTime.now().add(const Duration(minutes: 1)),
+                    );
+                  },
+                ),
+                _sheetAction(
+                  context: ctx,
+                  icon: Icons.event_rounded,
+                  title: 'Pick Date & Time',
+                  subtitle: 'Set a custom schedule',
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _pickAndScheduleFakeCall(number);
+                  },
+                ),
+                if (next != null)
+                  _sheetAction(
+                    context: ctx,
+                    icon: Icons.delete_outline_rounded,
+                    title: 'Cancel Next Scheduled Call',
+                    subtitle: 'Remove the upcoming scheduled fake call',
+                    titleColor: scheme.error,
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await _cancelScheduledFakeCall(next.id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sheetAction({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? titleColor,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: titleColor ?? scheme.primary),
+      title: Text(
+        title,
+        style: TextStyle(fontWeight: FontWeight.w600, color: titleColor),
+      ),
+      subtitle: Text(subtitle),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _scheduleFakeCall(String number, DateTime when) async {
+    await _fakeCallScheduler.scheduleFakeCall(
+      contactId: contact.id,
+      contactName: contact.displayName,
+      phoneNumber: number,
+      when: when,
+    );
+
+    if (!mounted) return;
+    final pretty = DateFormat('EEE, MMM d • h:mm a').format(when);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Fake call scheduled for $pretty')),
+    );
+  }
+
+  Future<void> _pickAndScheduleFakeCall(String number) async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      firstDate: now,
+      initialDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 1))),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final when = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (when.isBefore(DateTime.now().add(const Duration(seconds: 1)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please pick a future time')),
+      );
+      return;
+    }
+
+    await _scheduleFakeCall(number, when);
+  }
+
+  Future<void> _cancelScheduledFakeCall(int scheduleId) async {
+    await _fakeCallScheduler.cancelScheduledFakeCall(scheduleId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Scheduled fake call cancelled')),
     );
   }
 
