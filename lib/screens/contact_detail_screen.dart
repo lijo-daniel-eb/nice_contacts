@@ -86,7 +86,11 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) =>
-            FakeCallScreen(contact: contact, phoneNumber: number),
+            FakeCallScreen(
+              contact: contact,
+              phoneNumber: number,
+              autoAttend: _prefsService.getAutoAttendFakeCalls(),
+            ),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },

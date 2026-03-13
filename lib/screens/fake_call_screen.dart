@@ -13,11 +13,13 @@ import 'package:my_contacts/widgets/contact_avatar.dart';
 class FakeCallScreen extends StatefulWidget {
   final Contact contact;
   final String phoneNumber;
+  final bool autoAttend;
 
   const FakeCallScreen({
     super.key,
     required this.contact,
     required this.phoneNumber,
+    required this.autoAttend,
   });
 
   @override
@@ -69,13 +71,15 @@ class _FakeCallScreenState extends State<FakeCallScreen>
           ),
         );
 
-    // Auto-answer after 3-6 seconds to simulate a real call
-    final delay = 3 + Random().nextInt(4);
-    _autoAnswerTimer = Timer(Duration(seconds: delay), () {
-      if (mounted && _callState == _CallState.ringing) {
-        _answerCall();
-      }
-    });
+    if (widget.autoAttend) {
+      // Auto-answer after 3-6 seconds to simulate a real call.
+      final delay = 3 + Random().nextInt(4);
+      _autoAnswerTimer = Timer(Duration(seconds: delay), () {
+        if (mounted && _callState == _CallState.ringing) {
+          _answerCall();
+        }
+      });
+    }
   }
 
   @override

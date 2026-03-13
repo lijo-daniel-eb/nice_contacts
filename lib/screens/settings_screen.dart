@@ -81,6 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 16),
             _buildSectionTitle('Display', theme, colorScheme),
             _buildShowPhoneSetting(theme, colorScheme),
+            _buildAutoAttendFakeCallsSetting(theme, colorScheme),
             _buildSortOrderSetting(theme, colorScheme),
             _buildDefaultTabSetting(theme, colorScheme),
             const SizedBox(height: 16),
@@ -347,6 +348,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  Widget _buildAutoAttendFakeCallsSetting(
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return _buildSwitchTile(
+      icon: Icons.phone_callback_rounded,
+      title: 'Auto Attend Fake Calls',
+      subtitle: 'Automatically answer fake calls after a short delay',
+      value: _prefsService.getAutoAttendFakeCalls(),
+      colorScheme: colorScheme,
+      theme: theme,
+      onChanged: (val) async {
+        await _prefsService.setAutoAttendFakeCalls(val);
+        setState(() {});
+      },
+    );
+  }
+
   Widget _buildDefaultTabSetting(ThemeData theme, ColorScheme colorScheme) {
     final tabs = ['Contacts', 'Favourites', 'Recents', 'Settings'];
     final current = _prefsService.getDefaultTab();
@@ -476,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'AI Contacts',
+              'Smart Contacts',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),

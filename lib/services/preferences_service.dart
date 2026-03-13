@@ -14,6 +14,7 @@ class PreferencesService {
   static const String _defaultTabKey = 'default_tab';
   static const String _showPhoneInListKey = 'show_phone_in_list';
   static const String _accentColorKey = 'accent_color';
+  static const String _autoAttendFakeCallsKey = 'auto_attend_fake_calls';
 
   late SharedPreferences _prefs;
 
@@ -115,6 +116,11 @@ class PreferencesService {
   bool getShowPhoneInList() => _prefs.getBool(_showPhoneInListKey) ?? true;
   Future<void> setShowPhoneInList(bool show) =>
       _prefs.setBool(_showPhoneInListKey, show);
+
+    bool getAutoAttendFakeCalls() =>
+      _prefs.getBool(_autoAttendFakeCallsKey) ?? true;
+    Future<void> setAutoAttendFakeCalls(bool enabled) =>
+      _prefs.setBool(_autoAttendFakeCallsKey, enabled);
 
   int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF1B98E0;
   Future<void> setAccentColor(int color) =>

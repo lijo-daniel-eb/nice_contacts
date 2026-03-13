@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final accentColor = Color(PreferencesService().getAccentColor());
     return MaterialApp(
-      title: 'AI Contacts',
+      title: 'Smart Contacts',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme:
