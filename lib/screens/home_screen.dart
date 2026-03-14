@@ -38,75 +38,128 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final navLabelStyle = MaterialStateProperty.resolveWith<TextStyle>((states) {
+      final selected = states.contains(MaterialState.selected);
+      return TextStyle(
+        fontSize: 12,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        color: selected
+            ? colorScheme.onSurface
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
+      );
+    });
 
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.75),
-              border: Border(
-                top: BorderSide(
-                  color: colorScheme.primary.withValues(alpha: 0.08),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 28,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.10),
+                    blurRadius: 24,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: colorScheme.surfaceBright.withValues(alpha: 0.55),
+                  width: 1.1,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.surfaceBright.withValues(alpha: 0.65),
+                    colorScheme.surfaceContainerLow.withValues(alpha: 0.58),
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.50),
+                  ],
                 ),
               ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() => _currentIndex = index);
-                if (index == 0) {
-                  _contactsKey.currentState?.refresh();
-                } else if (index == 1) {
-                  _favouritesKey.currentState?.refresh();
-                }
-              },
-              indicatorColor: colorScheme.primary.withValues(alpha: 0.15),
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              animationDuration: const Duration(milliseconds: 500),
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: [
-                _buildNavDestination(
-                  Icons.contacts_outlined,
-                  Icons.contacts_rounded,
-                  'Contacts',
-                  const Color(0xFF1B98E0),
-                  0,
-                ),
-                _buildNavDestination(
-                  Icons.star_outline_rounded,
-                  Icons.star_rounded,
-                  'Favourites',
-                  const Color(0xFFFFA62E),
-                  1,
-                ),
-                _buildNavDestination(
-                  Icons.history_outlined,
-                  Icons.history_rounded,
-                  'Recents',
-                  const Color(0xFF00C9FF),
-                  2,
-                ),
-                _buildNavDestination(
-                  Icons.psychology_outlined,
-                  Icons.psychology_rounded,
-                  'Smart',
-                  const Color(0xFF4ECDC4),
-                  3,
-                ),
-                _buildNavDestination(
-                  Icons.settings_outlined,
-                  Icons.settings_rounded,
-                  'Settings',
-                  colorScheme.primary,
-                  4,
-                ),
-              ],
+              child: Stack(
+                children: [
+                  NavigationBar(
+                    selectedIndex: _currentIndex,
+                    onDestinationSelected: (index) {
+                      setState(() => _currentIndex = index);
+                      if (index == 0) {
+                        _contactsKey.currentState?.refresh();
+                      } else if (index == 1) {
+                        _favouritesKey.currentState?.refresh();
+                      }
+                    },
+                    indicatorColor: colorScheme.secondaryContainer.withValues(
+                      alpha: 0.85,
+                    ),
+                    indicatorShape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: colorScheme.primary.withValues(alpha: 0.20),
+                      ),
+                    ),
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    elevation: 0,
+                    animationDuration: const Duration(milliseconds: 500),
+                    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                    labelTextStyle: navLabelStyle,
+                    destinations: [
+                      _buildNavDestination(
+                        Icons.contacts_outlined,
+                        Icons.contacts_rounded,
+                        'Contacts',
+                        const Color(0xFF1D4ED8),
+                        colorScheme,
+                        0,
+                      ),
+                      _buildNavDestination(
+                        Icons.star_outline_rounded,
+                        Icons.star_rounded,
+                        'Favourites',
+                        const Color(0xFFB45309),
+                        colorScheme,
+                        1,
+                      ),
+                      _buildNavDestination(
+                        Icons.history_outlined,
+                        Icons.history_rounded,
+                        'Recents',
+                        const Color(0xFF0F766E),
+                        colorScheme,
+                        2,
+                      ),
+                      _buildNavDestination(
+                        Icons.psychology_outlined,
+                        Icons.psychology_rounded,
+                        'Smart',
+                        const Color(0xFF7C3AED),
+                        colorScheme,
+                        3,
+                      ),
+                      _buildNavDestination(
+                        Icons.settings_outlined,
+                        Icons.settings_rounded,
+                        'Settings',
+                        const Color(0xFF334155),
+                        colorScheme,
+                        4,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -119,16 +172,24 @@ class _HomeScreenState extends State<HomeScreen> {
     IconData selectedIcon,
     String label,
     Color accentColor,
+    ColorScheme colorScheme,
     int index,
   ) {
     final isSelected = _currentIndex == index;
     return NavigationDestination(
-      icon: Icon(icon, color: isSelected ? accentColor : null),
-      selectedIcon: ShaderMask(
-        shaderCallback: (bounds) => LinearGradient(
-          colors: [accentColor, accentColor.withValues(alpha: 0.7)],
-        ).createShader(bounds),
-        child: Icon(selectedIcon, color: Colors.white),
+      icon: Icon(
+        icon,
+        color: isSelected
+            ? accentColor
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
+      ),
+      selectedIcon: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(selectedIcon, color: accentColor),
       ),
       label: label,
     );
