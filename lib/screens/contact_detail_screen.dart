@@ -189,38 +189,14 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   },
                 ),
                 if (pendingCalls.isNotEmpty)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(8, 10, 8, 6),
-                    child: Text(
-                      'Pending Schedules',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                for (final call in pendingCalls)
                   _sheetAction(
                     context: ctx,
-                    icon: Icons.alarm_rounded,
-                    title:
-                        'Scheduled: ${DateFormat('EEE, MMM d • h:mm a').format(call.scheduledAt)}',
-                    subtitle: 'Tap to cancel this schedule',
-                    titleColor: scheme.onSurface,
+                    icon: Icons.list_alt_rounded,
+                    title: 'View Pending Schedules',
+                    subtitle: 'Open next window to manage each schedule',
                     onTap: () async {
                       Navigator.pop(ctx);
-                      await _cancelScheduledFakeCall(call.id);
-                    },
-                  ),
-                if (pendingCalls.length > 1)
-                  _sheetAction(
-                    context: ctx,
-                    icon: Icons.delete_outline_rounded,
-                    title: 'Cancel All Pending Schedules',
-                    subtitle: 'Remove all scheduled fake calls for this number',
-                    titleColor: scheme.error,
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      await _cancelAllScheduledFakeCalls(
-                        pendingCalls.map((e) => e.id).toList(),
-                      );
+                      await _showScheduledFakeCallsSheet(number);
                     },
                   ),
               ],
@@ -347,21 +323,101 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     await _scheduleFakeCall(number, DateTime.now().add(Duration(minutes: minutes)));
   }
 
+  Future<void> _showScheduledFakeCallsSheet(String number) async {
+    final calls = await _fakeCallScheduler.getScheduledCallsFor(contact.id, number);
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        final items = calls.toList();
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                      child: Text(
+                        'Pending Schedules',
+                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                        child: Text(
+                          'No pending schedules for this number.',
+                          style: Theme.of(ctx).textTheme.bodyMedium,
+                        ),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final call = items[index];
+                            return ListTile(
+                              leading: const Icon(Icons.alarm_rounded),
+                              title: Text(
+                                DateFormat(
+                                  'EEE, MMM d • h:mm a',
+                                ).format(call.scheduledAt),
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: const Text('Scheduled fake call'),
+                              trailing: IconButton(
+                                tooltip: 'Delete schedule',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () async {
+                                  await _fakeCallScheduler.cancelScheduledFakeCall(
+                                    call.id,
+                                  );
+                                  if (!mounted) return;
+                                  setSheetState(() {
+                                    items.removeAt(index);
+                                  });
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Scheduled fake call deleted'),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _cancelScheduledFakeCall(int scheduleId) async {
     await _fakeCallScheduler.cancelScheduledFakeCall(scheduleId);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Scheduled fake call cancelled')),
-    );
-  }
-
-  Future<void> _cancelAllScheduledFakeCalls(List<int> scheduleIds) async {
-    for (final id in scheduleIds) {
-      await _fakeCallScheduler.cancelScheduledFakeCall(id);
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${scheduleIds.length} scheduled fake calls cancelled')),
     );
   }
 
