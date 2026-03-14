@@ -103,15 +103,11 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   }
 
   Future<void> _fakeCall(String number) async {
-    final next = await _fakeCallScheduler.getNextScheduledCallFor(
+    final pendingCalls = await _fakeCallScheduler.getScheduledCallsFor(
       contact.id,
       number,
     );
     if (!mounted) return;
-
-    final formattedNext = next == null
-        ? null
-        : DateFormat('EEE, MMM d • h:mm a').format(next.scheduledAt);
 
     showModalBottomSheet(
       context: context,
@@ -135,11 +131,11 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                     ),
                   ),
                 ),
-                if (formattedNext != null)
+                if (pendingCalls.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: Text(
-                      'Next scheduled: $formattedNext',
+                      '${pendingCalls.length} pending schedule${pendingCalls.length == 1 ? '' : 's'}',
                       style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                         color: scheme.primary,
                         fontWeight: FontWeight.w600,
@@ -192,16 +188,39 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                     await _pickCustomMinuteAndSchedule(number);
                   },
                 ),
-                if (next != null)
+                if (pendingCalls.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(8, 10, 8, 6),
+                    child: Text(
+                      'Pending Schedules',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                for (final call in pendingCalls)
+                  _sheetAction(
+                    context: ctx,
+                    icon: Icons.alarm_rounded,
+                    title:
+                        'Scheduled: ${DateFormat('EEE, MMM d • h:mm a').format(call.scheduledAt)}',
+                    subtitle: 'Tap to cancel this schedule',
+                    titleColor: scheme.onSurface,
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await _cancelScheduledFakeCall(call.id);
+                    },
+                  ),
+                if (pendingCalls.length > 1)
                   _sheetAction(
                     context: ctx,
                     icon: Icons.delete_outline_rounded,
-                    title: 'Cancel Next Scheduled Call',
-                    subtitle: 'Remove the upcoming scheduled fake call',
+                    title: 'Cancel All Pending Schedules',
+                    subtitle: 'Remove all scheduled fake calls for this number',
                     titleColor: scheme.error,
                     onTap: () async {
                       Navigator.pop(ctx);
-                      await _cancelScheduledFakeCall(next.id);
+                      await _cancelAllScheduledFakeCalls(
+                        pendingCalls.map((e) => e.id).toList(),
+                      );
                     },
                   ),
               ],
@@ -333,6 +352,16 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Scheduled fake call cancelled')),
+    );
+  }
+
+  Future<void> _cancelAllScheduledFakeCalls(List<int> scheduleIds) async {
+    for (final id in scheduleIds) {
+      await _fakeCallScheduler.cancelScheduledFakeCall(id);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${scheduleIds.length} scheduled fake calls cancelled')),
     );
   }
 
