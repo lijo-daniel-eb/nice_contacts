@@ -186,13 +186,10 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   context: ctx,
                   icon: Icons.schedule_rounded,
                   title: 'In 1 minute',
-                  subtitle: 'Good for planning ahead',
+                  subtitle: 'Choose and adjust minutes',
                   onTap: () async {
                     Navigator.pop(ctx);
-                    await _scheduleFakeCall(
-                      number,
-                      DateTime.now().add(const Duration(minutes: 1)),
-                    );
+                    await _pickCustomMinuteAndSchedule(number);
                   },
                 ),
                 if (next != null)
@@ -249,6 +246,86 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Fake call scheduled for $pretty')),
     );
+  }
+
+  Future<void> _pickCustomMinuteAndSchedule(String number) async {
+    final minutes = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        var selectedMinutes = 1;
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Schedule Fake Call',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Adjust delay in minutes',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton.filledTonal(
+                          onPressed: selectedMinutes > 1
+                              ? () {
+                                  setSheetState(() {
+                                    selectedMinutes--;
+                                  });
+                                }
+                              : null,
+                          icon: const Icon(Icons.remove_rounded),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '$selectedMinutes min',
+                          style: Theme.of(ctx).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton.filled(
+                          onPressed: () {
+                            setSheetState(() {
+                              selectedMinutes++;
+                            });
+                          },
+                          icon: const Icon(Icons.add_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.pop(sheetCtx, selectedMinutes),
+                        icon: const Icon(Icons.schedule_rounded),
+                        label: const Text('Schedule'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted || minutes == null) return;
+    await _scheduleFakeCall(number, DateTime.now().add(Duration(minutes: minutes)));
   }
 
   Future<void> _cancelScheduledFakeCall(int scheduleId) async {
