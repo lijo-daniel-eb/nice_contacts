@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -86,6 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             _buildDefaultTabSetting(theme, colorScheme),
             const SizedBox(height: 16),
             _buildSectionTitle('Data', theme, colorScheme),
+            _buildCallRecordingsPathSetting(theme, colorScheme),
             _buildClearRecentsSetting(theme, colorScheme),
             _buildClearFavouritesSetting(theme, colorScheme),
             const SizedBox(height: 16),
@@ -416,6 +418,25 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCallRecordingsPathSetting(
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final customPath = _prefsService.getCallRecordingsPath();
+    final subtitle = customPath.isEmpty
+        ? 'Use automatic default locations'
+        : customPath;
+
+    return _buildSettingTile(
+      icon: Icons.folder_open_rounded,
+      title: 'Call Recordings Folder',
+      subtitle: subtitle,
+      colorScheme: colorScheme,
+      theme: theme,
+      onTap: () => _showCallRecordingsPathDialog(colorScheme),
     );
   }
 
@@ -801,6 +822,73 @@ class _SettingsScreenState extends State<SettingsScreen>
           }).toList(),
         ),
       ),
+    );
+  }
+
+  void _showCallRecordingsPathDialog(ColorScheme colorScheme) {
+    final customPath = _prefsService.getCallRecordingsPath();
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.folder_open_rounded),
+                  title: const Text('Choose Folder'),
+                  subtitle: const Text(
+                    'Pick call recordings directory using file explorer',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final selectedPath = await FilePicker.platform
+                        .getDirectoryPath(dialogTitle: 'Select Call Recordings Folder');
+                    if (selectedPath == null || selectedPath.trim().isEmpty) {
+                      return;
+                    }
+
+                    await _prefsService.setCallRecordingsPath(selectedPath.trim());
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Call recordings folder updated'),
+                      ),
+                    );
+                  },
+                ),
+                if (customPath.isNotEmpty)
+                  ListTile(
+                    leading: Icon(
+                      Icons.clear_rounded,
+                      color: colorScheme.error,
+                    ),
+                    title: Text(
+                      'Reset to Default Locations',
+                      style: TextStyle(color: colorScheme.error),
+                    ),
+                    subtitle: const Text('Remove custom folder path'),
+                    onTap: () async {
+                      await _prefsService.clearCallRecordingsPath();
+                      if (!mounted) return;
+                      Navigator.pop(ctx);
+                      setState(() {});
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Using default recording locations'),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

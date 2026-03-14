@@ -15,6 +15,7 @@ class PreferencesService {
   static const String _showPhoneInListKey = 'show_phone_in_list';
   static const String _accentColorKey = 'accent_color';
   static const String _autoAttendFakeCallsKey = 'auto_attend_fake_calls';
+  static const String _callRecordingsPathKey = 'call_recordings_path';
 
   late SharedPreferences _prefs;
 
@@ -125,6 +126,11 @@ class PreferencesService {
   int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF1B98E0;
   Future<void> setAccentColor(int color) =>
       _prefs.setInt(_accentColorKey, color);
+
+    String getCallRecordingsPath() => _prefs.getString(_callRecordingsPathKey) ?? '';
+    Future<void> setCallRecordingsPath(String path) =>
+      _prefs.setString(_callRecordingsPathKey, path);
+    Future<void> clearCallRecordingsPath() => _prefs.remove(_callRecordingsPathKey);
 }
 
 class RecentContact {

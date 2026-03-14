@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 import 'dart:ui';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/screens/fake_call_screen.dart';
+import 'package:my_contacts/services/call_recordings_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/services/fake_call_scheduler_service.dart';
@@ -28,8 +30,14 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   final _prefsService = PreferencesService();
   final _repo = ContactsRepository();
   final _fakeCallScheduler = FakeCallSchedulerService();
+  final _callRecordingsService = CallRecordingsService();
+  final AudioPlayer _recordingPlayer = AudioPlayer();
   late bool _isFavourite;
   late Contact _currentContact;
+  bool _isLoadingRecordings = false;
+  bool _isRecordingActionBusy = false;
+  String? _playingRecordingPath;
+  List<CallRecordingItem> _callRecordings = const [];
 
   Contact get contact => _currentContact;
 
@@ -41,11 +49,17 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     _repo.addListener(_onRepoUpdated);
     // Kick off high-res photo load
     _repo.getHighResPhoto(contact.id);
+    _loadCallRecordings();
+    _recordingPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() => _playingRecordingPath = null);
+    });
   }
 
   @override
   void dispose() {
     _repo.removeListener(_onRepoUpdated);
+    _recordingPlayer.dispose();
     super.dispose();
   }
 
@@ -76,6 +90,46 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       setState(() {
         _currentContact = result;
       });
+      _loadCallRecordings();
+    }
+  }
+
+  Future<void> _loadCallRecordings() async {
+    if (!mounted) return;
+    setState(() => _isLoadingRecordings = true);
+    final recordings = await _callRecordingsService.getRecordingsForContact(
+      contact,
+    );
+    if (!mounted) return;
+    setState(() {
+      _callRecordings = recordings;
+      _isLoadingRecordings = false;
+    });
+  }
+
+  Future<void> _toggleRecordingPlayback(CallRecordingItem recording) async {
+    if (_isRecordingActionBusy) return;
+    _isRecordingActionBusy = true;
+
+    try {
+      if (_playingRecordingPath == recording.path) {
+        await _recordingPlayer.stop();
+        if (!mounted) return;
+        setState(() => _playingRecordingPath = null);
+        return;
+      }
+
+      await _recordingPlayer.stop();
+      await _recordingPlayer.play(DeviceFileSource(recording.path));
+      if (!mounted) return;
+      setState(() => _playingRecordingPath = recording.path);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to play this recording file')),
+      );
+    } finally {
+      _isRecordingActionBusy = false;
     }
   }
 
@@ -876,6 +930,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       theme: theme,
                     ),
 
+                  _buildCallRecordingsCard(
+                    context,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+
                   // Notes
                   if (contact.notes.isNotEmpty)
                     _buildInfoCard(
@@ -1050,6 +1110,164 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildCallRecordingsCard(
+    BuildContext context, {
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                        const Color(0xFF7C3AED).withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.graphic_eq_rounded,
+                    size: 16,
+                    color: Color(0xFF7C3AED),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Call Recordings',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _isLoadingRecordings ? null : _loadCallRecordings,
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  tooltip: 'Refresh recordings',
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (_isLoadingRecordings)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Scanning recording folders...'),
+                ],
+              ),
+            )
+          else if (_callRecordings.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'No matched recordings found for this contact.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            )
+          else
+            ..._callRecordings.take(10).map((recording) {
+              final index = _callRecordings.indexOf(recording);
+              final isLast = index ==
+                  (_callRecordings.length > 10
+                      ? 9
+                      : _callRecordings.length - 1);
+              final isPlaying = _playingRecordingPath == recording.path;
+              return Column(
+                children: [
+                  ListTile(
+                    dense: true,
+                    onTap: () => _toggleRecordingPlayback(recording),
+                    title: Text(
+                      recording.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${DateFormat('dd MMM yyyy, hh:mm a').format(recording.modifiedAt)} • ${_formatBytes(recording.sizeBytes)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    trailing: IconButton(
+                      tooltip: isPlaying ? 'Stop playback' : 'Play recording',
+                      onPressed: () => _toggleRecordingPlayback(recording),
+                      icon: Icon(
+                        isPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.play_circle_fill_rounded,
+                        color: isPlaying
+                            ? const Color(0xFF4CAF50)
+                            : colorScheme.primary.withValues(alpha: 0.78),
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                  if (!isLast) const Divider(height: 1),
+                ],
+              );
+            }),
+          if (!_isLoadingRecordings && _callRecordings.length > 10)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text(
+                '+${_callRecordings.length - 10} more recordings',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Widget _buildEmailCard(
