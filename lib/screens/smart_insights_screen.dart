@@ -33,6 +33,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ContactInsights? _insights;
   List<SuggestedAction> _suggestions = [];
   CleanupReport? _cleanupReport;
+  final Set<String> _expandedGroups = {};
 
   @override
   void initState() {
@@ -593,6 +594,8 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     ColorScheme colorScheme,
   ) {
     final color = _groupColor(group.name);
+    final isExpanded = _expandedGroups.contains(group.name);
+    final extraContacts = group.contacts.skip(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,13 +671,60 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         if (group.contacts.length > 5)
           Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 8),
-            child: Text(
-              '  +${group.contacts.length - 5} more',
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                fontWeight: FontWeight.w500,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedGroups.remove(group.name);
+                  } else {
+                    _expandedGroups.add(group.name);
+                  }
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Text(
+                  isExpanded
+                      ? '  Show less'
+                      : '  +${group.contacts.length - 5} more',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                    decorationColor: color.withValues(alpha: 0.6),
+                  ),
+                ),
               ),
+            ),
+          ),
+        if (isExpanded)
+          ...extraContacts.map(
+            (contact) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: ContactAvatar(contact: contact, radius: 18),
+              title: Text(
+                contact.displayName,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: contact.phones.isNotEmpty
+                  ? Text(
+                      contact.phones.first.number,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    )
+                  : null,
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
+                size: 20,
+              ),
+              onTap: () => _navigateToContact(contact),
             ),
           ),
         const Divider(height: 24),
