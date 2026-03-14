@@ -51,6 +51,19 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    doLast {
+        val flutterApkDir = rootProject.projectDir
+            .parentFile
+            .resolve("build/app/outputs/flutter-apk")
+        val releaseApk = flutterApkDir.resolve("app-release.apk")
+        if (releaseApk.exists()) {
+            releaseApk.copyTo(flutterApkDir.resolve("SmartContact.apk"), overwrite = true)
+        }
+    }
 }
 
 flutter {
