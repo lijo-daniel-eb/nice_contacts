@@ -34,6 +34,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   List<SuggestedAction> _suggestions = [];
   CleanupReport? _cleanupReport;
   final Set<String> _expandedGroups = {};
+  bool _isMergingDuplicates = false;
 
   @override
   void initState() {
@@ -430,6 +431,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     ColorScheme colorScheme,
   ) {
     final percentage = (group.similarityScore * 100).toInt();
+    final canMergeBySameNumber = _hasSameNumberDuplicates(group);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -516,10 +518,266 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 ),
               ),
             ),
+            if (canMergeBySameNumber)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _isMergingDuplicates
+                        ? null
+                        : () => _mergeDuplicatesBySameNumber(group),
+                    icon: _isMergingDuplicates
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.merge_type_rounded),
+                    label: const Text('Merge Same Number'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  bool _hasSameNumberDuplicates(DuplicateGroup group) {
+    final seen = <String>{};
+    for (final contact in group.contacts) {
+      for (final phone in contact.phones) {
+        final key = _normalizedPhoneMergeKey(phone.number);
+        if (key == null) continue;
+        if (seen.contains(key)) return true;
+        seen.add(key);
+      }
+    }
+    return false;
+  }
+
+  Future<void> _mergeDuplicatesBySameNumber(DuplicateGroup group) async {
+    final byNumber = <String, List<Contact>>{};
+    for (final contact in group.contacts) {
+      final keys = contact.phones
+          .map((p) => _normalizedPhoneMergeKey(p.number))
+          .whereType<String>()
+          .toSet();
+      for (final key in keys) {
+        byNumber.putIfAbsent(key, () => []).add(contact);
+      }
+    }
+
+    final mergeSets = byNumber.values
+        .map((list) => list.toSet().toList())
+        .where((list) => list.length > 1)
+        .toList();
+
+    if (mergeSets.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No same-number duplicates to merge')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Merge Duplicates'),
+        content: const Text(
+          'This will merge contacts that share the same phone number and delete duplicate entries. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Merge'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isMergingDuplicates = true);
+    final deletedIds = <String>{};
+    var mergedContacts = 0;
+
+    try {
+      for (final mergeList in mergeSets) {
+        final active = mergeList
+            .where((c) => !deletedIds.contains(c.id))
+            .toList();
+        if (active.length < 2) continue;
+
+        active.sort((a, b) => _contactDataWeight(b).compareTo(_contactDataWeight(a)));
+
+        Contact primary = await FlutterContacts.getContact(
+              active.first.id,
+              withProperties: true,
+              withPhoto: true,
+            ) ??
+            active.first;
+
+        var changedPrimary = false;
+        for (final secondaryRef in active.skip(1)) {
+          if (deletedIds.contains(secondaryRef.id)) continue;
+
+          final secondary = await FlutterContacts.getContact(
+                secondaryRef.id,
+                withProperties: true,
+                withPhoto: true,
+              ) ??
+              secondaryRef;
+
+          changedPrimary =
+              _mergeContactIntoPrimary(primary, secondary) || changedPrimary;
+          await FlutterContacts.deleteContact(secondary);
+          deletedIds.add(secondary.id);
+          mergedContacts++;
+        }
+
+        if (changedPrimary) {
+          await FlutterContacts.updateContact(primary);
+        }
+      }
+
+      await _repo.refresh();
+      await _loadData();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            mergedContacts > 0
+                ? 'Merged $mergedContacts duplicate contact${mergedContacts > 1 ? 's' : ''}'
+                : 'No duplicates were merged',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to merge duplicates: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isMergingDuplicates = false);
+    }
+  }
+
+  int _contactDataWeight(Contact contact) {
+    var score = 0;
+    score += contact.phones.length * 3;
+    score += contact.emails.length * 2;
+    score += contact.addresses.length;
+    score += contact.organizations.length;
+    score += contact.websites.length;
+    score += contact.events.length;
+    score += contact.notes.length;
+    score += contact.socialMedias.length;
+    if (contact.photo != null || contact.thumbnail != null) score += 2;
+    if (contact.displayName.trim().isNotEmpty) score += 1;
+    return score;
+  }
+
+  bool _mergeContactIntoPrimary(Contact primary, Contact secondary) {
+    var changed = false;
+
+    if (primary.displayName.trim().isEmpty &&
+        secondary.displayName.trim().isNotEmpty) {
+      primary.name = secondary.name;
+      changed = true;
+    }
+
+    if (primary.photo == null && secondary.photo != null) {
+      primary.photo = secondary.photo;
+      changed = true;
+    }
+    if (primary.thumbnail == null && secondary.thumbnail != null) {
+      primary.thumbnail = secondary.thumbnail;
+      changed = true;
+    }
+
+    changed =
+        _appendUnique(
+          target: primary.phones,
+          source: secondary.phones,
+          key: (p) => _normalizedPhoneMergeKey(p.number) ?? p.number,
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.emails,
+          source: secondary.emails,
+          key: (e) => e.address.toLowerCase(),
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.addresses,
+          source: secondary.addresses,
+          key: (a) => a.address.trim().toLowerCase(),
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.organizations,
+          source: secondary.organizations,
+          key: (o) => '${o.company}|${o.title}'.toLowerCase(),
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.websites,
+          source: secondary.websites,
+          key: (w) => w.url.toLowerCase(),
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.notes,
+          source: secondary.notes,
+          key: (n) => n.note.trim().toLowerCase(),
+        ) ||
+        changed;
+    changed =
+        _appendUnique(
+          target: primary.socialMedias,
+          source: secondary.socialMedias,
+          key: (s) => '${s.userName}|${s.label.name}'.toLowerCase(),
+        ) ||
+        changed;
+
+    return changed;
+  }
+
+  bool _appendUnique<T>({
+    required List<T> target,
+    required Iterable<T> source,
+    required String Function(T item) key,
+  }) {
+    var changed = false;
+    final existingKeys = target.map(key).toSet();
+    for (final item in source) {
+      final itemKey = key(item);
+      if (existingKeys.contains(itemKey)) continue;
+      target.add(item);
+      existingKeys.add(itemKey);
+      changed = true;
+    }
+    return changed;
+  }
+
+  String? _normalizedPhoneMergeKey(String input) {
+    final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 7) return null;
+    if (digits.length > 10) return digits.substring(digits.length - 10);
+    return digits;
   }
 
   Color _getSimilarityColor(double score) {
