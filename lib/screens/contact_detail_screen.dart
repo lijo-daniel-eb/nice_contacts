@@ -38,6 +38,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   bool _isRecordingActionBusy = false;
   String? _playingRecordingPath;
   List<CallRecordingItem> _callRecordings = const [];
+  List<String> _contactGroups = const [];
 
   Contact get contact => _currentContact;
 
@@ -49,6 +50,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     _repo.addListener(_onRepoUpdated);
     // Kick off high-res photo load
     _repo.getHighResPhoto(contact.id);
+    _loadContactGroups();
     _loadCallRecordings();
     _recordingPlayer.onPlayerComplete.listen((_) {
       if (!mounted) return;
@@ -90,8 +92,17 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       setState(() {
         _currentContact = result;
       });
+      _loadContactGroups();
       _loadCallRecordings();
     }
+  }
+
+  void _loadContactGroups() {
+    final groups = _prefsService.getContactGroups(contact.id);
+    if (!mounted) return;
+    setState(() {
+      _contactGroups = groups;
+    });
   }
 
   Future<void> _loadCallRecordings() async {
@@ -885,6 +896,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       theme: theme,
                     ),
 
+                  if (_contactGroups.isNotEmpty)
+                    _buildGroupsCard(
+                      context,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                    ),
+
                   // Websites
                   if (contact.websites.isNotEmpty)
                     _buildInfoCard(
@@ -1472,6 +1490,87 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
               color: color.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupsCard(
+    BuildContext context, {
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                        const Color(0xFF7C3AED).withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.group_work_rounded,
+                    size: 16,
+                    color: Color(0xFF7C3AED),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Groups',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _contactGroups
+                  .map(
+                    (group) => Chip(
+                      label: Text(group),
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                      ),
+                      backgroundColor: colorScheme.surface,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
