@@ -859,10 +859,10 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       padding: const EdgeInsets.all(16),
       itemCount: groups.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.48,
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1,
       ),
       itemBuilder: (context, index) {
         final group = groups[index];
@@ -980,7 +980,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openGroupContactsList(group, theme, colorScheme),
         child: Ink(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(18),
@@ -991,16 +991,30 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
             children: [
               Row(
                 children: [
-                  Text(group.icon, style: const TextStyle(fontSize: 18)),
+                  Text(group.icon, style: const TextStyle(fontSize: 16)),
                   const Spacer(),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: color.withValues(alpha: 0.8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFC857),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFFF4A300)),
+                    ),
+                    child: Text(
+                      '${group.contacts.length}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF3B2A00),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 group.name,
                 maxLines: 1,
@@ -1008,23 +1022,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: color,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${group.contacts.length} contact${group.contacts.length == 1 ? '' : 's'}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                group.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.55),
+                  fontSize: 12,
                 ),
               ),
             ],
