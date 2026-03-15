@@ -99,10 +99,19 @@ class ContactsScreenState extends State<ContactsScreen>
   List<Contact> _applyFilter(List<Contact> contacts, String query) {
     if (query.isEmpty) return contacts;
     final search = query.toLowerCase();
+    final searchDigits = _digitsOnly(query);
     return contacts.where((contact) {
-      return contact.displayName.toLowerCase().contains(search);
+      final nameMatches = contact.displayName.toLowerCase().contains(search);
+      if (nameMatches) return true;
+
+      if (searchDigits.isEmpty) return false;
+      return contact.phones.any(
+        (phone) => _digitsOnly(phone.number).contains(searchDigits),
+      );
     }).toList();
   }
+
+  String _digitsOnly(String value) => value.replaceAll(RegExp(r'\D'), '');
 
   // Group contacts alphabetically
   Map<String, List<Contact>> _groupContacts() {
