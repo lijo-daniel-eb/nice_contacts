@@ -74,10 +74,11 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
     _analysisRunning = false;
     if (mounted) {
+      final mergedGroups = _mergeWithSavedGroups(results.smartGroups, contacts);
       setState(() {
         _contacts = contacts;
         _duplicates = results.duplicates;
-        _smartGroups = results.smartGroups;
+        _smartGroups = mergedGroups;
         _insights = results.insights;
         _suggestions = _intelligence.generateSuggestions(contacts);
         _cleanupReport = results.cleanupReport;
@@ -90,6 +91,60 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   /// using a real isolate via compute() — prevents UI jank with 700+ contacts.
   Future<_AnalysisResults> _analyzeInBackground(List<Contact> contacts) async {
     return compute(_runAnalysis, contacts);
+  }
+
+  Map<String, SmartGroup> _mergeWithSavedGroups(
+    Map<String, SmartGroup> autoGroups,
+    List<Contact> contacts,
+  ) {
+    final merged = <String, SmartGroup>{...autoGroups};
+    final customMembers = <String, List<Contact>>{};
+
+    for (final contact in contacts) {
+      final assigned = _prefsService.getContactGroups(contact.id);
+      for (final groupName in assigned) {
+        final key = groupName.trim();
+        if (key.isEmpty) continue;
+        customMembers.putIfAbsent(key, () => []);
+        final list = customMembers[key]!;
+        if (!list.any((c) => c.id == contact.id)) {
+          list.add(contact);
+        }
+      }
+    }
+
+    for (final entry in customMembers.entries) {
+      final name = entry.key;
+      final contactsInGroup = entry.value;
+
+      if (contactsInGroup.isEmpty) continue;
+
+      if (merged.containsKey(name)) {
+        final existing = merged[name]!;
+        final combined = <Contact>[...existing.contacts];
+        final existingIds = combined.map((c) => c.id).toSet();
+        for (final c in contactsInGroup) {
+          if (existingIds.add(c.id)) {
+            combined.add(c);
+          }
+        }
+        merged[name] = SmartGroup(
+          name: existing.name,
+          icon: existing.icon,
+          contacts: combined,
+          description: existing.description,
+        );
+      } else {
+        merged[name] = SmartGroup(
+          name: name,
+          icon: '🏷️',
+          contacts: contactsInGroup,
+          description: 'Custom group from contact editor',
+        );
+      }
+    }
+
+    return merged;
   }
 
   @override
