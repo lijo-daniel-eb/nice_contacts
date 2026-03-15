@@ -845,16 +845,15 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildGroupsTab(ThemeData theme, ColorScheme colorScheme) {
-    if (_smartGroups.isEmpty) {
+    final groups = _buildCombinedGroups();
+
+    if (groups.isEmpty) {
       return _buildEmptyState(
         icon: Icons.category_rounded,
         title: 'No groups found',
-        subtitle: 'Contacts will be auto-categorized based on their info.',
+        subtitle: 'Add groups or organization tags in Edit Contact to see tiles here.',
       );
     }
-
-    final groups = _smartGroups.values.toList()
-      ..sort((a, b) => b.contacts.length.compareTo(a.contacts.length));
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -863,13 +862,110 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.22,
+        childAspectRatio: 1.48,
       ),
       itemBuilder: (context, index) {
         final group = groups[index];
         return _buildGroupTile(group, theme, colorScheme);
       },
     );
+  }
+
+  List<SmartGroup> _buildCombinedGroups() {
+    final combined = <SmartGroup>[];
+    combined.addAll(_buildAssignedContactGroups());
+    combined.addAll(_buildOrganizationGroups());
+
+    combined.sort((a, b) {
+      final countCompare = b.contacts.length.compareTo(a.contacts.length);
+      if (countCompare != 0) return countCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    return combined;
+  }
+
+  List<SmartGroup> _buildAssignedContactGroups() {
+    final contactsByGroup = <String, List<Contact>>{};
+    final groupNameByKey = <String, String>{};
+
+    for (final contact in _contacts) {
+      final assigned = _prefsService.getContactGroups(contact.id);
+      for (final groupName in assigned) {
+        final trimmed = groupName.trim();
+        if (trimmed.isEmpty) continue;
+
+        final key = trimmed.toLowerCase();
+        groupNameByKey.putIfAbsent(key, () => trimmed);
+        contactsByGroup.putIfAbsent(key, () => []);
+
+        final list = contactsByGroup[key]!;
+        if (!list.any((c) => c.id == contact.id)) {
+          list.add(contact);
+        }
+      }
+    }
+
+    final groups = contactsByGroup.entries.map((entry) {
+      final displayName = groupNameByKey[entry.key] ?? entry.key;
+      final contacts = entry.value.toList()
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+      return SmartGroup(
+        name: displayName,
+        icon: '🏷️',
+        contacts: contacts,
+        description: 'Group',
+      );
+    }).toList();
+
+    return groups;
+  }
+
+  List<SmartGroup> _buildOrganizationGroups() {
+    final contactsByOrg = <String, List<Contact>>{};
+    final orgNameByKey = <String, String>{};
+
+    for (final contact in _contacts) {
+      final orgNames = <String>{};
+      for (final org in contact.organizations) {
+        final company = org.company.trim();
+        if (company.isEmpty) continue;
+        orgNames.add(company);
+      }
+
+      for (final orgName in orgNames) {
+        final key = orgName.toLowerCase();
+        orgNameByKey.putIfAbsent(key, () => orgName);
+        contactsByOrg.putIfAbsent(key, () => []);
+
+        final list = contactsByOrg[key]!;
+        if (!list.any((c) => c.id == contact.id)) {
+          list.add(contact);
+        }
+      }
+    }
+
+    final groups = contactsByOrg.entries.map((entry) {
+      final displayName = orgNameByKey[entry.key] ?? entry.key;
+      final contacts = entry.value.toList()
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+      return SmartGroup(
+        name: displayName,
+        icon: '🏢',
+        contacts: contacts,
+        description: 'Contacts tagged under $displayName',
+      );
+    }).toList();
+
+    groups.sort((a, b) {
+      final countCompare = b.contacts.length.compareTo(a.contacts.length);
+      if (countCompare != 0) return countCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    return groups;
   }
 
   Widget _buildGroupTile(
@@ -884,7 +980,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openGroupContactsList(group, theme, colorScheme),
         child: Ink(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(18),
@@ -922,15 +1018,13 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: Text(
-                  group.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.55),
-                  ),
+              const SizedBox(height: 2),
+              Text(
+                group.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
               ),
             ],
@@ -1000,8 +1094,24 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       'Personal' => const Color(0xFF4ECDC4),
       'Family' => const Color(0xFFFF6B35),
       'Social' => const Color(0xFFFFA62E),
-      _ => const Color(0xFF9E9E9E),
+      _ => _colorFromName(name),
     };
+  }
+
+  Color _colorFromName(String name) {
+    const palette = [
+      Color(0xFF1B98E0),
+      Color(0xFF7C3AED),
+      Color(0xFF0F766E),
+      Color(0xFFB45309),
+      Color(0xFFD63031),
+      Color(0xFF4CAF50),
+      Color(0xFF2196F3),
+      Color(0xFFFF9800),
+    ];
+
+    final hash = name.toLowerCase().runes.fold<int>(0, (a, b) => a + b);
+    return palette[hash % palette.length];
   }
 
   // ─────────────────────────────────────────────
