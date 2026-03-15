@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
+import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -20,6 +21,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool get _isNew => widget.contact == null;
+  final _prefsService = PreferencesService();
 
   // Name controllers
   final _firstNameCtrl = TextEditingController();
@@ -45,6 +47,10 @@ class _EditContactScreenState extends State<EditContactScreen> {
   // Events
   final List<_EventEntry> _events = [];
 
+  // Groups
+  List<String> _availableGroups = const [];
+  final Set<String> _selectedGroups = {};
+
   final _formKey = GlobalKey<FormState>();
   bool _showMoreNameFields = false;
 
@@ -55,12 +61,15 @@ class _EditContactScreenState extends State<EditContactScreen> {
   }
 
   Future<void> _loadContact() async {
+    await _prefsService.init();
+
     if (_isNew) {
       _contact = Contact();
       _contact.propertiesFetched = true;
       _contact.photoFetched = true;
       _phones.add(_PhoneEntry());
       _emails.add(_EmailEntry());
+      _availableGroups = _prefsService.getAvailableContactGroups();
       setState(() => _isLoading = false);
       return;
     }
@@ -87,6 +96,10 @@ class _EditContactScreenState extends State<EditContactScreen> {
 
     _contact = full;
     _populateFields();
+    _availableGroups = _prefsService.getAvailableContactGroups();
+    _selectedGroups
+      ..clear()
+      ..addAll(_prefsService.getContactGroups(_contact.id));
     setState(() => _isLoading = false);
   }
 
@@ -259,6 +272,9 @@ class _EditContactScreenState extends State<EditContactScreen> {
         saved = await FlutterContacts.updateContact(_contact);
       }
 
+      // Persist app-level group assignment for this contact.
+      await _prefsService.setContactGroups(saved.id, _selectedGroups.toList());
+
       // Refresh the shared repository so all screens see changes
       await ContactsRepository().refresh();
 
@@ -392,6 +408,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                   _buildPhoneSection(theme),
                   _buildEmailSection(theme),
                   _buildOrganizationSection(theme),
+                  _buildGroupsSection(theme),
                   _buildAddressSection(theme),
                   _buildEventsSection(theme),
                   _buildNotesSection(theme),
@@ -673,6 +690,116 @@ class _EditContactScreenState extends State<EditContactScreen> {
         ),
       ],
     );
+  }
+
+  // ──────────────────────── Groups ────────────────────────
+
+  Widget _buildGroupsSection(ThemeData theme) {
+    return _buildSection(
+      theme: theme,
+      icon: Icons.group_work_rounded,
+      title: 'Groups',
+      trailing: IconButton(
+        icon: const Icon(Icons.add_rounded, size: 20),
+        onPressed: _showAddGroupDialog,
+        tooltip: 'Create group',
+      ),
+      children: [
+        if (_availableGroups.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              'No groups yet',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 14,
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _availableGroups.map((group) {
+              return FilterChip(
+                label: Text(group),
+                selected: _selectedGroups.contains(group),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedGroups.add(group);
+                    } else {
+                      _selectedGroups.remove(group);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showAddGroupDialog() async {
+    String draftGroupName = '';
+
+    final groupName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('New Group'),
+          content: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Group name (e.g. Neighbours)',
+            ),
+            textCapitalization: TextCapitalization.words,
+            onChanged: (value) {
+              setDialogState(() {
+                draftGroupName = value;
+              });
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: draftGroupName.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(
+                      dialogContext,
+                      draftGroupName.trim(),
+                    ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (groupName == null || groupName.isEmpty) return;
+
+    try {
+      await _prefsService.init();
+      await _prefsService.addAvailableContactGroup(groupName);
+      if (!mounted) return;
+
+      setState(() {
+        _availableGroups = _prefsService.getAvailableContactGroups();
+        final resolved = _availableGroups.firstWhere(
+          (g) => g.toLowerCase() == groupName.toLowerCase(),
+          orElse: () => groupName,
+        );
+        _selectedGroups.add(resolved);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add group: $e')));
+    }
   }
 
   // ──────────────────────── Addresses ────────────────────────

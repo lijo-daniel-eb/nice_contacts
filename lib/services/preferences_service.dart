@@ -16,6 +16,16 @@ class PreferencesService {
   static const String _accentColorKey = 'accent_color';
   static const String _autoAttendFakeCallsKey = 'auto_attend_fake_calls';
   static const String _callRecordingsPathKey = 'call_recordings_path';
+  static const String _availableContactGroupsKey = 'available_contact_groups';
+  static const String _contactGroupsMapKey = 'contact_groups_map';
+
+  static const List<String> _defaultContactGroups = [
+    'Family',
+    'Friends',
+    'Work',
+    'VIP',
+    'Emergency',
+  ];
 
   late SharedPreferences _prefs;
 
@@ -90,6 +100,88 @@ class PreferencesService {
     await _prefs.setStringList(_recentsKey, []);
   }
 
+  // --- Contact Groups ---
+
+  List<String> getAvailableContactGroups() {
+    final stored = _prefs.getStringList(_availableContactGroupsKey) ?? [];
+    final merged = <String>[];
+
+    for (final g in [..._defaultContactGroups, ...stored]) {
+      final trimmed = g.trim();
+      if (trimmed.isEmpty) continue;
+      final exists = merged.any(
+        (m) => m.toLowerCase() == trimmed.toLowerCase(),
+      );
+      if (!exists) merged.add(trimmed);
+    }
+
+    return merged;
+  }
+
+  Future<void> addAvailableContactGroup(String groupName) async {
+    final trimmed = groupName.trim();
+    if (trimmed.isEmpty) return;
+
+    final stored = _prefs.getStringList(_availableContactGroupsKey) ?? [];
+    final existsInDefaults = _defaultContactGroups.any(
+      (g) => g.toLowerCase() == trimmed.toLowerCase(),
+    );
+    final existsInStored = stored.any(
+      (g) => g.toLowerCase() == trimmed.toLowerCase(),
+    );
+
+    if (!existsInDefaults && !existsInStored) {
+      stored.add(trimmed);
+      await _prefs.setStringList(_availableContactGroupsKey, stored);
+    }
+  }
+
+  List<String> getContactGroups(String contactId) {
+    final map = _getContactGroupsMap();
+    return map[contactId] ?? const [];
+  }
+
+  Future<void> setContactGroups(String contactId, List<String> groups) async {
+    final map = _getContactGroupsMap();
+    final cleaned = <String>[];
+
+    for (final g in groups) {
+      final trimmed = g.trim();
+      if (trimmed.isEmpty) continue;
+      final exists = cleaned.any(
+        (c) => c.toLowerCase() == trimmed.toLowerCase(),
+      );
+      if (!exists) cleaned.add(trimmed);
+    }
+
+    if (cleaned.isEmpty) {
+      map.remove(contactId);
+    } else {
+      map[contactId] = cleaned;
+    }
+
+    await _prefs.setString(_contactGroupsMapKey, jsonEncode(map));
+  }
+
+  Map<String, List<String>> _getContactGroupsMap() {
+    final raw = _prefs.getString(_contactGroupsMapKey);
+    if (raw == null || raw.trim().isEmpty) return {};
+
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final result = <String, List<String>>{};
+      for (final entry in decoded.entries) {
+        final value = entry.value;
+        if (value is List) {
+          result[entry.key] = value.map((e) => e.toString()).toList();
+        }
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
   /// Get contacts sorted by frequency (most contacted first)
   Map<String, int> getFrequentlyContacted() {
     final recents = getRecents();
@@ -118,19 +210,20 @@ class PreferencesService {
   Future<void> setShowPhoneInList(bool show) =>
       _prefs.setBool(_showPhoneInListKey, show);
 
-    bool getAutoAttendFakeCalls() =>
+  bool getAutoAttendFakeCalls() =>
       _prefs.getBool(_autoAttendFakeCallsKey) ?? true;
-    Future<void> setAutoAttendFakeCalls(bool enabled) =>
+  Future<void> setAutoAttendFakeCalls(bool enabled) =>
       _prefs.setBool(_autoAttendFakeCallsKey, enabled);
 
   int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF1B98E0;
   Future<void> setAccentColor(int color) =>
       _prefs.setInt(_accentColorKey, color);
 
-    String getCallRecordingsPath() => _prefs.getString(_callRecordingsPathKey) ?? '';
-    Future<void> setCallRecordingsPath(String path) =>
+  String getCallRecordingsPath() => _prefs.getString(_callRecordingsPathKey) ?? '';
+  Future<void> setCallRecordingsPath(String path) =>
       _prefs.setString(_callRecordingsPathKey, path);
-    Future<void> clearCallRecordingsPath() => _prefs.remove(_callRecordingsPathKey);
+  Future<void> clearCallRecordingsPath() =>
+      _prefs.remove(_callRecordingsPathKey);
 }
 
 class RecentContact {
