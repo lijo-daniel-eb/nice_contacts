@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -474,13 +477,97 @@ class _EditContactScreenState extends State<EditContactScreen> {
 
   // ──────────────────────── Avatar ────────────────────────
 
+  Uint8List? get _activePhotoBytes {
+    final photo = _contact.photo;
+    if (photo != null && photo.isNotEmpty) return photo;
+    final thumbnail = _contact.thumbnail;
+    if (thumbnail != null && thumbnail.isNotEmpty) return thumbnail;
+    return null;
+  }
+
+  Future<void> _showPhotoActions() async {
+    final hasPhoto = _activePhotoBytes != null;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.image_rounded),
+                title: Text(hasPhoto ? 'Update photo' : 'Add photo'),
+                subtitle: const Text('Choose an image from your device'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _pickProfilePhoto();
+                },
+              ),
+              if (hasPhoto)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline_rounded),
+                  title: const Text('Remove photo'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeProfilePhoto();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to read selected image')),
+      );
+      return;
+    }
+
+    setState(() {
+      _contact.photo = bytes;
+      _contact.photoFetched = true;
+    });
+  }
+
+  void _removeProfilePhoto() {
+    setState(() {
+      _contact.photo = null;
+      _contact.photoFetched = true;
+    });
+  }
+
   Widget _buildAvatarSection(ColorScheme colorScheme) {
+    final photoBytes = _activePhotoBytes;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       alignment: Alignment.center,
       child: Stack(
         children: [
-          if (_isNew)
+          if (photoBytes != null)
+            CircleAvatar(
+              radius: 56,
+              backgroundImage: MemoryImage(photoBytes),
+              backgroundColor: colorScheme.primaryContainer,
+            )
+          else if (_isNew)
             CircleAvatar(
               radius: 56,
               backgroundColor: colorScheme.primaryContainer,
@@ -501,12 +588,16 @@ class _EditContactScreenState extends State<EditContactScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: colorScheme.surface, width: 2),
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.camera_alt_rounded,
-                  size: 18,
-                  color: Colors.white,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _showPhotoActions,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.camera_alt_rounded,
+                    size: 18,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
