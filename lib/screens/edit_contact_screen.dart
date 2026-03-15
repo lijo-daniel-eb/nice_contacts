@@ -395,7 +395,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                   _buildAddressSection(theme),
                   _buildEventsSection(theme),
                   _buildNotesSection(theme),
-                  if (!_isNew) _buildAccountsSection(theme),
+                  _buildAccountsSection(theme),
                   if (!_isNew) _buildDeleteSection(theme),
                 ],
               ),
@@ -918,11 +918,22 @@ class _EditContactScreenState extends State<EditContactScreen> {
         title: 'Saved to',
         children: [
           _buildInfoTile(
-            icon: Icons.phone_android_rounded,
-            title: 'Device',
-            subtitle: 'Saved on this device',
+            icon: _isNew ? Icons.account_circle_rounded : Icons.phone_android_rounded,
+            title: _isNew ? 'Default contact account' : 'Device',
+            subtitle: _isNew
+                ? 'Will be saved to your phone default (Phone or Gmail)'
+                : 'Saved on this device',
             theme: theme,
           ),
+          if (_isNew)
+            Text(
+              'To change where new contacts are saved, update the default account in your device Contacts app settings.',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
         ],
       );
     }

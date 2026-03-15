@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
+import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
@@ -89,6 +90,13 @@ class ContactsScreenState extends State<ContactsScreen>
     await _repo.refresh();
   }
 
+  Future<void> _addContact() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EditContactScreen()),
+    );
+  }
+
   void _filterContacts(String query) {
     setState(() {
       _filteredContacts = _applyFilter(_allContacts, query);
@@ -160,6 +168,18 @@ class ContactsScreenState extends State<ContactsScreen>
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 28,
+          right: 18,
+        ),
+        child: FloatingActionButton(
+          onPressed: _addContact,
+          child: const Icon(Icons.add_rounded, size: 34),
+          tooltip: 'Add Contact',
+        ),
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
