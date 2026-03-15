@@ -54,23 +54,6 @@ android {
 
 }
 
-tasks.matching { it.name == "copyFlutterAssetsRelease" }.configureEach {
-    doLast {
-        val flutterApkDir = rootProject.projectDir
-            .parentFile
-            .resolve("build/app/outputs/flutter-apk")
-        val releaseApk = flutterApkDir.resolve("app-release.apk")
-        val smartApk = flutterApkDir.resolve("SmartContact.apk")
-        if (releaseApk.exists()) {
-            if (smartApk.exists()) {
-                smartApk.delete()
-            }
-            releaseApk.renameTo(smartApk)
-        }
-        flutterApkDir.resolve("app-release.apk.sha1").delete()
-    }
-}
-
 flutter {
     source = "../.."
 }
