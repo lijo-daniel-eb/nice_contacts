@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:my_contacts/screens/help_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 
@@ -90,6 +91,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             _buildCallRecordingsPathSetting(theme, colorScheme),
             _buildClearRecentsSetting(theme, colorScheme),
             _buildClearFavouritesSetting(theme, colorScheme),
+            const SizedBox(height: 16),
+            _buildSectionTitle('Support', theme, colorScheme),
+            _buildHelpSetting(theme, colorScheme),
             const SizedBox(height: 16),
             _buildSectionTitle('About', theme, colorScheme),
             _buildAboutCard(theme, colorScheme),
@@ -483,6 +487,24 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHelpSetting(ThemeData theme, ColorScheme colorScheme) {
+    return _buildSettingTile(
+      icon: Icons.help_center_rounded,
+      title: 'Help and Guide',
+      subtitle: 'Learn every option and feature in this app',
+      colorScheme: colorScheme,
+      theme: theme,
+      onTap: _openHelpPage,
+    );
+  }
+
+  void _openHelpPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HelpScreen()),
     );
   }
 
