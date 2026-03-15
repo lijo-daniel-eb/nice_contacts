@@ -67,10 +67,16 @@ class _RecentsScreenState extends State<RecentsScreen>
       }
     }
 
-    // Load frequent
-    final frequencyMap = _prefsService.getFrequentlyContacted();
+    // Load frequent calls only (exclude message/email/whatsapp actions).
+    final frequencyMap = <String, int>{};
+    for (final r in recents) {
+      if (r.action != 'call') continue;
+      frequencyMap[r.contactId] = (frequencyMap[r.contactId] ?? 0) + 1;
+    }
     final frequentEntries = <_FrequentEntry>[];
-    for (final entry in frequencyMap.entries.take(20)) {
+    final sortedFrequency = frequencyMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    for (final entry in sortedFrequency.take(20)) {
       final contact = contactMap[entry.key];
       if (contact != null) {
         frequentEntries.add(
