@@ -1,5 +1,5 @@
 # ============================================================
-# Add 50 dummy contacts to Android emulator via ADB
+# Add 60 dummy contacts (including 10 duplicates) to Android emulator via ADB
 # Usage: powershell -ExecutionPolicy Bypass -File add_contacts.ps1
 # ============================================================
 
@@ -20,7 +20,7 @@ $contacts = @(
     # 11-20
     @{ First="Kevin";     Last="Hart";       Phone="+14155551011"; Email="kevin.hart@uber.com";              Company="Uber" },
     @{ First="Laura";     Last="Palmer";     Phone="+14155551012"; Email="laura.p@airbnb.com";               Company="Airbnb" },
-    @{ First="Michael";   Last="Scott";      Phone="+14155551013"; Email="michael.scott@dundermifflin.com";  Company="Dunder Mifflin" },
+    @{ First="Michael";   Last="Scott";      Phone="+14155551013"; Email="michael.scott@dundermifflin.com";  Company="Dunder-Mifflin" },
     @{ First="Nancy";     Last="Drew";       Phone="+14155551014"; Email="nancy.drew@intel.com";             Company="Intel" },
     @{ First="Oliver";    Last="Twist";      Phone="+14155551015"; Email="oliver.t@nvidia.com";              Company="NVIDIA" },
     @{ First="Patricia";  Last="Clark";      Phone="+14155551016"; Email="patricia.c@oracle.com";            Company="Oracle" },
@@ -60,7 +60,18 @@ $contacts = @(
     @{ First="Ursula";    Last="Grant";      Phone="+14155551047"; Email="ursula.g@elastic.com";             Company="Elastic" },
     @{ First="Vincent";   Last="Zhao";       Phone="+14155551048"; Email="vincent.z@twilio.com";             Company="Twilio" },
     @{ First="Wanda";     Last="Maximoff";   Phone="+14155551049"; Email="wanda.m@docker.com";               Company="Docker" },
-    @{ First="Xander";    Last="Cole";       Phone="+14155551050"; Email="xander.c@hashicorp.com";           Company="HashiCorp" }
+    @{ First="Xander";    Last="Cole";       Phone="+14155551050"; Email="xander.c@hashicorp.com";           Company="HashiCorp" },
+    # 51-60 (different names, same phone numbers for duplicate-number testing)
+    @{ First="Ava";       Last="Morris";     Phone="+14155551001"; Email="ava.morris@gmail.com";             Company="Google" },
+    @{ First="Brian";     Last="Turner";     Phone="+14155551002"; Email="brian.turner@outlook.com";         Company="Microsoft" },
+    @{ First="Clara";     Last="Evans";      Phone="+14155551003"; Email="clara.evans@yahoo.com";            Company="Apple" },
+    @{ First="Daniel";    Last="Reed";       Phone="+14155551004"; Email="daniel.reed@amazon.com";           Company="Amazon" },
+    @{ First="Ethan";     Last="Price";      Phone="+14155551005"; Email="ethan.price@netflix.com";          Company="Netflix" },
+    @{ First="Faith";     Last="Cooper";     Phone="+14155551006"; Email="faith.cooper@spotify.com";         Company="Spotify" },
+    @{ First="Gavin";     Last="Hayes";      Phone="+14155551007"; Email="gavin.hayes@tesla.com";            Company="Tesla" },
+    @{ First="Hazel";     Last="Perry";      Phone="+14155551008"; Email="hazel.perry@adobe.com";            Company="Adobe" },
+    @{ First="Ian";       Last="Bennett";    Phone="+14155551009"; Email="ian.bennett@spacex.com";           Company="SpaceX" },
+    @{ First="Jade";      Last="Foster";     Phone="+14155551010"; Email="jade.foster@meta.com";             Company="Meta" }
 )
 
 Write-Host "Adding $($contacts.Count) contacts to emulator...`n"
@@ -69,8 +80,8 @@ $id = 1
 foreach ($c in $contacts) {
     Write-Host "[$id/$($contacts.Count)] Adding $($c.First) $($c.Last)..."
 
-    # Insert raw contact
-    & $adb shell "content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s: --bind account_name:s:"
+    # Insert raw contact with aggregation disabled so same-number contacts remain separate.
+    & $adb shell "content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s: --bind account_name:s: --bind aggregation_mode:i:3"
 
     # Insert display name
     & $adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data2:s:$($c.First) --bind data3:s:$($c.Last)"
