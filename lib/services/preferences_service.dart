@@ -18,6 +18,7 @@ class PreferencesService {
   static const String _callRecordingsPathKey = 'call_recordings_path';
   static const String _availableContactGroupsKey = 'available_contact_groups';
   static const String _contactGroupsMapKey = 'contact_groups_map';
+  static const String _availableOrganizationTagsKey = 'available_organization_tags';
 
   static const List<String> _defaultContactGroups = [
     'Family',
@@ -179,6 +180,34 @@ class PreferencesService {
       return result;
     } catch (_) {
       return {};
+    }
+  }
+
+  // --- Organization Tags ---
+
+  List<String> getAvailableOrganizationTags() {
+    final stored = _prefs.getStringList(_availableOrganizationTagsKey) ?? [];
+    final cleaned = <String>[];
+
+    for (final tag in stored) {
+      final trimmed = tag.trim();
+      if (trimmed.isEmpty) continue;
+      final exists = cleaned.any((c) => c.toLowerCase() == trimmed.toLowerCase());
+      if (!exists) cleaned.add(trimmed);
+    }
+
+    return cleaned;
+  }
+
+  Future<void> addAvailableOrganizationTag(String tagName) async {
+    final trimmed = tagName.trim();
+    if (trimmed.isEmpty) return;
+
+    final stored = _prefs.getStringList(_availableOrganizationTagsKey) ?? [];
+    final exists = stored.any((t) => t.toLowerCase() == trimmed.toLowerCase());
+    if (!exists) {
+      stored.add(trimmed);
+      await _prefs.setStringList(_availableOrganizationTagsKey, stored);
     }
   }
 

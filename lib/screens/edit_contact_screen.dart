@@ -22,6 +22,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
   bool _isSaving = false;
   bool get _isNew => widget.contact == null;
   final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
 
   // Name controllers
   final _firstNameCtrl = TextEditingController();
@@ -30,11 +31,6 @@ class _EditContactScreenState extends State<EditContactScreen> {
   final _prefixCtrl = TextEditingController();
   final _suffixCtrl = TextEditingController();
   final _nicknameCtrl = TextEditingController();
-
-  // Organization controllers
-  final _companyCtrl = TextEditingController();
-  final _jobTitleCtrl = TextEditingController();
-  final _departmentCtrl = TextEditingController();
 
   // Notes controller
   final _notesCtrl = TextEditingController();
@@ -50,6 +46,10 @@ class _EditContactScreenState extends State<EditContactScreen> {
   // Groups
   List<String> _availableGroups = const [];
   final Set<String> _selectedGroups = {};
+
+  // Organization tags
+  List<String> _availableOrganizationTags = const [];
+  final Set<String> _selectedOrganizationTags = {};
 
   final _formKey = GlobalKey<FormState>();
   bool _showMoreNameFields = false;
@@ -70,6 +70,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
       _phones.add(_PhoneEntry());
       _emails.add(_EmailEntry());
       _availableGroups = _prefsService.getAvailableContactGroups();
+      _availableOrganizationTags = await _buildOrganizationTagCatalog();
       setState(() => _isLoading = false);
       return;
     }
@@ -100,7 +101,52 @@ class _EditContactScreenState extends State<EditContactScreen> {
     _selectedGroups
       ..clear()
       ..addAll(_prefsService.getContactGroups(_contact.id));
+    _selectedOrganizationTags
+      ..clear()
+      ..addAll(
+        _contact.organizations
+            .map((o) => o.company.trim())
+            .where((c) => c.isNotEmpty),
+      );
+    _availableOrganizationTags = await _buildOrganizationTagCatalog(
+      include: _selectedOrganizationTags,
+    );
+
     setState(() => _isLoading = false);
+  }
+
+  Future<List<String>> _buildOrganizationTagCatalog({
+    Iterable<String> include = const [],
+  }) async {
+    final merged = <String>[];
+
+    void addTag(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return;
+      final exists = merged.any((t) => t.toLowerCase() == trimmed.toLowerCase());
+      if (!exists) merged.add(trimmed);
+    }
+
+    for (final tag in _prefsService.getAvailableOrganizationTags()) {
+      addTag(tag);
+    }
+
+    await _repo.ensureLoaded();
+    for (final contact in _repo.contacts) {
+      for (final org in contact.organizations) {
+        addTag(org.company);
+      }
+    }
+
+    for (final tag in include) {
+      addTag(tag);
+    }
+
+    for (final tag in merged) {
+      await _prefsService.addAvailableOrganizationTag(tag);
+    }
+
+    return merged;
   }
 
   void _populateFields() {
@@ -150,13 +196,6 @@ class _EditContactScreenState extends State<EditContactScreen> {
           label: a.label,
         ),
       );
-    }
-
-    // Organization
-    if (_contact.organizations.isNotEmpty) {
-      _companyCtrl.text = _contact.organizations.first.company;
-      _jobTitleCtrl.text = _contact.organizations.first.title;
-      _departmentCtrl.text = _contact.organizations.first.department;
     }
 
     // Notes
@@ -218,19 +257,12 @@ class _EditContactScreenState extends State<EditContactScreen> {
         .map((a) => Address(a.controller.text.trim(), label: a.label))
         .toList();
 
-    // Organization
-    if (_companyCtrl.text.trim().isNotEmpty ||
-        _jobTitleCtrl.text.trim().isNotEmpty) {
-      _contact.organizations = [
-        Organization(
-          company: _companyCtrl.text.trim(),
-          title: _jobTitleCtrl.text.trim(),
-          department: _departmentCtrl.text.trim(),
-        ),
-      ];
-    } else {
-      _contact.organizations = [];
-    }
+    // Organization tags
+    _contact.organizations = _selectedOrganizationTags
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .map((tag) => Organization(company: tag))
+        .toList();
 
     // Notes
     if (_notesCtrl.text.trim().isNotEmpty) {
@@ -349,9 +381,6 @@ class _EditContactScreenState extends State<EditContactScreen> {
     _prefixCtrl.dispose();
     _suffixCtrl.dispose();
     _nicknameCtrl.dispose();
-    _companyCtrl.dispose();
-    _jobTitleCtrl.dispose();
-    _departmentCtrl.dispose();
     _notesCtrl.dispose();
     for (final p in _phones) {
       p.controller.dispose();
@@ -671,25 +700,107 @@ class _EditContactScreenState extends State<EditContactScreen> {
     return _buildSection(
       theme: theme,
       icon: Icons.business_rounded,
-      title: 'Organization',
+      title: 'Organization Tags',
+      trailing: IconButton(
+        icon: const Icon(Icons.add_rounded, size: 20),
+        onPressed: _showAddOrganizationTagDialog,
+        tooltip: 'Create organization tag',
+      ),
       children: [
-        _buildTextField(
-          controller: _companyCtrl,
-          label: 'Company',
-          textCapitalization: TextCapitalization.words,
-        ),
-        _buildTextField(
-          controller: _jobTitleCtrl,
-          label: 'Job title',
-          textCapitalization: TextCapitalization.words,
-        ),
-        _buildTextField(
-          controller: _departmentCtrl,
-          label: 'Department',
-          textCapitalization: TextCapitalization.words,
-        ),
+        if (_availableOrganizationTags.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              'No organization tags yet',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 14,
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _availableOrganizationTags.map((tag) {
+              return FilterChip(
+                label: Text(tag),
+                selected: _selectedOrganizationTags.contains(tag),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedOrganizationTags.add(tag);
+                    } else {
+                      _selectedOrganizationTags.remove(tag);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
       ],
     );
+  }
+
+  Future<void> _showAddOrganizationTagDialog() async {
+    String draftTagName = '';
+
+    final tagName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('New Organization Tag'),
+          content: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Tag name (e.g. TechCorp)',
+            ),
+            textCapitalization: TextCapitalization.words,
+            onChanged: (value) {
+              setDialogState(() {
+                draftTagName = value;
+              });
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: draftTagName.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(dialogContext, draftTagName.trim()),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (tagName == null || tagName.isEmpty) return;
+
+    try {
+      await _prefsService.init();
+      await _prefsService.addAvailableOrganizationTag(tagName);
+      if (!mounted) return;
+
+      setState(() {
+        _availableOrganizationTags = _prefsService.getAvailableOrganizationTags();
+        final resolved = _availableOrganizationTags.firstWhere(
+          (t) => t.toLowerCase() == tagName.toLowerCase(),
+          orElse: () => tagName,
+        );
+        _selectedOrganizationTags.add(resolved);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        SnackBar(content: Text('Failed to add organization tag: $e')),
+      );
+    }
   }
 
   // ──────────────────────── Groups ────────────────────────
