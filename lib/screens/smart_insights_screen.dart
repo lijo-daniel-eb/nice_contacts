@@ -33,7 +33,6 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ContactInsights? _insights;
   List<SuggestedAction> _suggestions = [];
   CleanupReport? _cleanupReport;
-  final Set<String> _expandedGroups = {};
   bool _isMergingDuplicates = false;
 
   @override
@@ -854,194 +853,144 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       );
     }
 
-    return ListView(
+    final groups = _smartGroups.values.toList()
+      ..sort((a, b) => b.contacts.length.compareTo(a.contacts.length));
+
+    return GridView.builder(
       padding: const EdgeInsets.all(16),
-      children: [
-        // Summary cards
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _smartGroups.entries.map((entry) {
-            return _buildGroupChip(entry.value, colorScheme);
-          }).toList(),
-        ),
-        const SizedBox(height: 20),
-        // Expanded group lists
-        ..._smartGroups.entries.map((entry) {
-          return _buildGroupSection(entry.value, theme, colorScheme);
-        }),
-      ],
+      itemCount: groups.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.22,
+      ),
+      itemBuilder: (context, index) {
+        final group = groups[index];
+        return _buildGroupTile(group, theme, colorScheme);
+      },
     );
   }
 
-  Widget _buildGroupChip(SmartGroup group, ColorScheme colorScheme) {
-    final color = _groupColor(group.name);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(group.icon, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 6),
-          Text(
-            '${group.name} (${group.contacts.length})',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupSection(
+  Widget _buildGroupTile(
     SmartGroup group,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
     final color = _groupColor(group.name);
-    final isExpanded = _expandedGroups.contains(group.name);
-    final extraContacts = group.contacts.skip(5).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openGroupContactsList(group, theme, colorScheme),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(group.icon, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
+              Row(
+                children: [
+                  Text(group.icon, style: const TextStyle(fontSize: 18)),
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: color.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
                 group.name,
-                style: theme.textTheme.titleMedium?.copyWith(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: color,
                 ),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 4),
+              Text(
+                '${group.contacts.length} contact${group.contacts.length == 1 ? '' : 's'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
                 child: Text(
-                  '${group.contacts.length}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+                  group.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Text(
-          group.description,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
+      ),
+    );
+  }
+
+  Future<void> _openGroupContactsList(
+    SmartGroup group,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (routeContext) => Scaffold(
+          appBar: AppBar(
+            title: Text('${group.icon} ${group.name}'),
           ),
-        ),
-        const SizedBox(height: 8),
-        ...group.contacts
-            .take(5)
-            .map(
-              (contact) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: ContactAvatar(contact: contact, radius: 18),
+          body: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            itemCount: group.contacts.length,
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            ),
+            itemBuilder: (_, index) {
+              final contact = group.contacts[index];
+              final subtitle = contact.phones.isNotEmpty
+                  ? contact.phones.first.number
+                  : contact.emails.isNotEmpty
+                  ? contact.emails.first.address
+                  : 'No details';
+
+              return ListTile(
+                leading: ContactAvatar(contact: contact, radius: 20),
                 title: Text(
                   contact.displayName,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                subtitle: contact.phones.isNotEmpty
-                    ? Text(
-                        contact.phones.first.number,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.4),
-                        ),
-                      )
-                    : null,
-                trailing: Icon(
-                  Icons.chevron_right_rounded,
-                  color: colorScheme.onSurface.withValues(alpha: 0.2),
-                  size: 20,
-                ),
-                onTap: () => _navigateToContact(contact),
-              ),
-            ),
-        if (group.contacts.length > 5)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                setState(() {
-                  if (isExpanded) {
-                    _expandedGroups.remove(group.name);
-                  } else {
-                    _expandedGroups.add(group.name);
-                  }
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Text(
-                  isExpanded
-                      ? '  Show less'
-                      : '  +${group.contacts.length - 5} more',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: color,
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                    decorationColor: color.withValues(alpha: 0.6),
                   ),
                 ),
-              ),
-            ),
-          ),
-        if (isExpanded)
-          ...extraContacts.map(
-            (contact) => ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: ContactAvatar(contact: contact, radius: 18),
-              title: Text(
-                contact.displayName,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+                subtitle: Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
                 ),
-              ),
-              subtitle: contact.phones.isNotEmpty
-                  ? Text(
-                      contact.phones.first.number,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.4),
-                      ),
-                    )
-                  : null,
-              trailing: Icon(
-                Icons.chevron_right_rounded,
-                color: colorScheme.onSurface.withValues(alpha: 0.2),
-                size: 20,
-              ),
-              onTap: () => _navigateToContact(contact),
-            ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(routeContext);
+                  _navigateToContact(contact);
+                },
+              );
+            },
           ),
-        const Divider(height: 24),
-      ],
+        ),
+      ),
     );
   }
 
