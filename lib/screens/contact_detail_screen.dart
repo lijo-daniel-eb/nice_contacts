@@ -32,6 +32,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   final _fakeCallScheduler = FakeCallSchedulerService();
   final _callRecordingsService = CallRecordingsService();
   final AudioPlayer _recordingPlayer = AudioPlayer();
+  final ValueNotifier<String?> _playingRecordingPathListenable =
+      ValueNotifier<String?>(null);
   late bool _isFavourite;
   late Contact _currentContact;
   bool _isLoadingRecordings = false;
@@ -54,7 +56,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     _loadCallRecordings();
     _recordingPlayer.onPlayerComplete.listen((_) {
       if (!mounted) return;
-      setState(() => _playingRecordingPath = null);
+      _setPlayingRecordingPath(null);
     });
   }
 
@@ -62,6 +64,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   void dispose() {
     _repo.removeListener(_onRepoUpdated);
     _recordingPlayer.dispose();
+    _playingRecordingPathListenable.dispose();
     super.dispose();
   }
 
@@ -125,15 +128,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     try {
       if (_playingRecordingPath == recording.path) {
         await _recordingPlayer.stop();
-        if (!mounted) return;
-        setState(() => _playingRecordingPath = null);
+        _setPlayingRecordingPath(null);
         return;
       }
 
       await _recordingPlayer.stop();
       await _recordingPlayer.play(DeviceFileSource(recording.path));
-      if (!mounted) return;
-      setState(() => _playingRecordingPath = recording.path);
+      _setPlayingRecordingPath(recording.path);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,6 +143,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     } finally {
       _isRecordingActionBusy = false;
     }
+  }
+
+  void _setPlayingRecordingPath(String? path) {
+    if (!mounted) return;
+    setState(() => _playingRecordingPath = path);
+    _playingRecordingPathListenable.value = path;
   }
 
   Future<void> _makeCall(String number) async {
@@ -1125,6 +1132,10 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     required ColorScheme colorScheme,
     required ThemeData theme,
   }) {
+    final remainingCount = _callRecordings.length > 10
+        ? _callRecordings.length - 10
+        : 0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -1257,16 +1268,194 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
           if (!_isLoadingRecordings && _callRecordings.length > 10)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(
-                '+${_callRecordings.length - 10} more recordings',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _pickRecordingDateRange,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '+$remainingCount more recordings (filter by date range)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: colorScheme.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Future<void> _pickRecordingDateRange() async {
+    if (_callRecordings.isEmpty) return;
+
+    var minDate = DateTime(
+      _callRecordings.first.modifiedAt.year,
+      _callRecordings.first.modifiedAt.month,
+      _callRecordings.first.modifiedAt.day,
+    );
+    var maxDate = minDate;
+
+    for (final recording in _callRecordings) {
+      final dateOnly = DateTime(
+        recording.modifiedAt.year,
+        recording.modifiedAt.month,
+        recording.modifiedAt.day,
+      );
+      if (dateOnly.isBefore(minDate)) minDate = dateOnly;
+      if (dateOnly.isAfter(maxDate)) maxDate = dateOnly;
+    }
+
+    final pickedRange = await showDateRangePicker(
+      context: context,
+      firstDate: minDate,
+      lastDate: maxDate,
+      initialDateRange: DateTimeRange(start: minDate, end: maxDate),
+      helpText: 'Filter recordings by date',
+    );
+
+    if (pickedRange == null || !mounted) return;
+
+    final rangeStart = DateTime(
+      pickedRange.start.year,
+      pickedRange.start.month,
+      pickedRange.start.day,
+    );
+    final rangeEnd = DateTime(
+      pickedRange.end.year,
+      pickedRange.end.month,
+      pickedRange.end.day,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    final filteredRecordings = _callRecordings.where((recording) {
+      final modifiedAt = recording.modifiedAt;
+      return !modifiedAt.isBefore(rangeStart) && !modifiedAt.isAfter(rangeEnd);
+    }).toList();
+
+    final rangeLabel =
+        '${DateFormat('dd MMM yyyy').format(rangeStart)} - ${DateFormat('dd MMM yyyy').format(rangeEnd)}';
+
+    await _showRecordingsSheet(
+      recordings: filteredRecordings,
+      title: 'Recordings in Range (${filteredRecordings.length})',
+      subtitle: rangeLabel,
+    );
+  }
+
+  Future<void> _showRecordingsSheet({
+    required List<CallRecordingItem> recordings,
+    required String title,
+    String? subtitle,
+  }) async {
+    if (recordings.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No recordings found in selected range.')),
+        );
+      }
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        final colorScheme = Theme.of(sheetCtx).colorScheme;
+        final theme = Theme.of(sheetCtx);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(sheetCtx).size.height * 0.72,
+                  ),
+                  child: ValueListenableBuilder<String?>(
+                    valueListenable: _playingRecordingPathListenable,
+                    builder: (context, playingPath, _) => ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: recordings.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                      ),
+                      itemBuilder: (_, index) {
+                        final recording = recordings[index];
+                        final isPlaying = playingPath == recording.path;
+
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          onTap: () => _toggleRecordingPlayback(recording),
+                          title: Text(
+                            recording.fileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${DateFormat('dd MMM yyyy, hh:mm a').format(recording.modifiedAt)} • ${_formatBytes(recording.sizeBytes)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          trailing: IconButton(
+                            tooltip: isPlaying ? 'Stop playback' : 'Play recording',
+                            onPressed: () => _toggleRecordingPlayback(recording),
+                            icon: Icon(
+                              isPlaying
+                                  ? Icons.pause_circle_filled_rounded
+                                  : Icons.play_circle_fill_rounded,
+                              color: isPlaying
+                                  ? const Color(0xFF4CAF50)
+                                  : colorScheme.primary.withValues(alpha: 0.78),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
