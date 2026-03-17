@@ -20,137 +20,179 @@ class SmartInsightsScreen extends StatefulWidget {
 class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     with SingleTickerProviderStateMixin {
   final _intelligence = ContactIntelligenceService();
-  final _prefsService = PreferencesService();
-  final _repo = ContactsRepository();
-  late TabController _tabController;
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFFF6B35),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.icon(
+                              onPressed: _isMergingDuplicates
+                                  ? null
+                                  : _mergeAllDuplicatesBySameNumber,
+                              icon: _isMergingDuplicates
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.merge_type_rounded),
+                              label: const Text('Merge All'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
-  List<Contact> _contacts = [];
-  bool _isLoading = true;
-
-  // Cached results
-  List<DuplicateGroup> _duplicates = [];
-  Map<String, SmartGroup> _smartGroups = {};
-  ContactInsights? _insights;
-  List<SuggestedAction> _suggestions = [];
-  CleanupReport? _cleanupReport;
-  bool _isMergingDuplicates = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-    _repo.addListener(_onRepoUpdated);
-    _loadData();
+        final group = _duplicates[index - 1];
+        return _buildDuplicateCard(group, index, theme, colorScheme);
+      },
+    );
   }
 
-  @override
-  void dispose() {
-    _repo.removeListener(_onRepoUpdated);
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _mergeAllDuplicatesBySameNumber() async {
+    await _mergeDuplicatesBySameNumberForGroups(
+      _duplicates,
+      noDuplicatesMessage: 'No same-number duplicates found to merge',
+      confirmContent:
+          'This will merge contacts across all duplicate groups when they share the same phone number and delete duplicate entries. Continue?',
+    );
   }
 
-  bool _analysisRunning = false;
-
-  void _onRepoUpdated() {
-    if (mounted && _repo.hasLoaded && !_analysisRunning) _loadData();
-  }
-
-  Future<void> _loadData() async {
-    if (_analysisRunning) return;
-    _analysisRunning = true;
-
-    await _repo.ensureLoaded();
-    final contacts = _repo.contacts;
-    if (contacts.isEmpty) {
-      _analysisRunning = false;
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
-    // Run heavy analysis off the main thread
-    final results = await _analyzeInBackground(contacts);
-
-    _analysisRunning = false;
-    if (mounted) {
-      final mergedGroups = _mergeWithSavedGroups(results.smartGroups, contacts);
-      setState(() {
-        _contacts = contacts;
-        _duplicates = results.duplicates;
-        _smartGroups = mergedGroups;
-        _insights = results.insights;
-        _suggestions = _intelligence.generateSuggestions(contacts);
-        _cleanupReport = results.cleanupReport;
-        _isLoading = false;
-      });
-    }
-  }
-
-  /// Run CPU-heavy analysis (duplicates, groups, insights, cleanup) off main thread
-  /// using a real isolate via compute() — prevents UI jank with 700+ contacts.
-  Future<_AnalysisResults> _analyzeInBackground(List<Contact> contacts) async {
-    return compute(_runAnalysis, contacts);
-  }
-
-  Map<String, SmartGroup> _mergeWithSavedGroups(
-    Map<String, SmartGroup> autoGroups,
-    List<Contact> contacts,
+  Widget _buildDuplicateCard(
+    DuplicateGroup group,
+    int index,
+    ThemeData theme,
+    ColorScheme colorScheme,
   ) {
-    final merged = <String, SmartGroup>{...autoGroups};
-    final customMembers = <String, List<Contact>>{};
+    final percentage = (group.similarityScore * 100).toInt();
+    final canMergeBySameNumber = _hasSameNumberDuplicates(group);
 
-    for (final contact in contacts) {
-      final assigned = _prefsService.getContactGroups(contact.id);
-      for (final groupName in assigned) {
-        final key = groupName.trim();
-        if (key.isEmpty) continue;
-        customMembers.putIfAbsent(key, () => []);
-        final list = customMembers[key]!;
-        if (!list.any((c) => c.id == contact.id)) {
-          list.add(contact);
-        }
-      }
-    }
-
-    for (final entry in customMembers.entries) {
-      final name = entry.key;
-      final contactsInGroup = entry.value;
-
-      if (contactsInGroup.isEmpty) continue;
-
-      if (merged.containsKey(name)) {
-        final existing = merged[name]!;
-        final combined = <Contact>[...existing.contacts];
-        final existingIds = combined.map((c) => c.id).toSet();
-        for (final c in contactsInGroup) {
-          if (existingIds.add(c.id)) {
-            combined.add(c);
-          }
-        }
-        merged[name] = SmartGroup(
-          name: existing.name,
-          icon: existing.icon,
-          contacts: combined,
-          description: existing.description,
-        );
-      } else {
-        merged[name] = SmartGroup(
-          name: name,
-          icon: '🏷️',
-          contacts: contactsInGroup,
-          description: 'Custom group from contact editor',
-        );
-      }
-    }
-
-    return merged;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getSimilarityColor(
+                      group.similarityScore,
+                    ).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$percentage% match',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _getSimilarityColor(group.similarityScore),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    group.reason,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...group.contacts.map(
+              (contact) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _navigateToContact(contact),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        ContactAvatar(contact: contact, radius: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                contact.displayName,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (contact.phones.isNotEmpty)
+                                Text(
+                                  contact.phones.first.number,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (canMergeBySameNumber)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _isMergingDuplicates
+                        ? null
+                        : () => _mergeDuplicatesBySameNumber(group),
+                    icon: _isMergingDuplicates
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.merge_type_rounded),
+                    label: const Text('Merge Same Number'),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
@@ -612,14 +654,29 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   }
 
   Future<void> _mergeDuplicatesBySameNumber(DuplicateGroup group) async {
+    await _mergeDuplicatesBySameNumberForGroups(
+      [group],
+      noDuplicatesMessage: 'No same-number duplicates to merge',
+      confirmContent:
+          'This will merge contacts that share the same phone number and delete duplicate entries. Continue?',
+    );
+  }
+
+  Future<void> _mergeDuplicatesBySameNumberForGroups(
+    List<DuplicateGroup> groups, {
+    required String noDuplicatesMessage,
+    required String confirmContent,
+  }) async {
     final byNumber = <String, List<Contact>>{};
-    for (final contact in group.contacts) {
-      final keys = contact.phones
-          .map((p) => _normalizedPhoneMergeKey(p.number))
-          .whereType<String>()
-          .toSet();
-      for (final key in keys) {
-        byNumber.putIfAbsent(key, () => []).add(contact);
+    for (final group in groups) {
+      for (final contact in group.contacts) {
+        final keys = contact.phones
+            .map((p) => _normalizedPhoneMergeKey(p.number))
+            .whereType<String>()
+            .toSet();
+        for (final key in keys) {
+          byNumber.putIfAbsent(key, () => []).add(contact);
+        }
       }
     }
 
@@ -630,9 +687,9 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
     if (mergeSets.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No same-number duplicates to merge')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(noDuplicatesMessage)));
       return;
     }
 
@@ -640,9 +697,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Merge Duplicates'),
-        content: const Text(
-          'This will merge contacts that share the same phone number and delete duplicate entries. Continue?',
-        ),
+        content: Text(confirmContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
