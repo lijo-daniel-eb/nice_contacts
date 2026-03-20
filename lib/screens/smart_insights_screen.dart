@@ -1,14 +1,12 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contact_intelligence_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SmartInsightsScreen extends StatefulWidget {
   const SmartInsightsScreen({super.key});
@@ -20,49 +18,63 @@ class SmartInsightsScreen extends StatefulWidget {
 class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     with SingleTickerProviderStateMixin {
   final _intelligence = ContactIntelligenceService();
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFFF6B35),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
-                              onPressed: _isMergingDuplicates
-                                  ? null
-                                  : _mergeAllDuplicatesBySameNumber,
-                              icon: _isMergingDuplicates
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.merge_type_rounded),
-                              label: const Text('Merge All'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
+  final _prefsService = PreferencesService();
+  final _repo = ContactsRepository();
 
-        final group = _duplicates[index - 1];
-        return _buildDuplicateCard(group, index, theme, colorScheme);
-      },
-    );
+  late final TabController _tabController;
+
+  List<Contact> _contacts = [];
+  List<SuggestedAction> _suggestions = [];
+  List<DuplicateGroup> _duplicates = [];
+  ContactInsights? _insights;
+  CleanupReport? _cleanupReport;
+
+  bool _isLoading = true;
+  bool _isMergingDuplicates = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      await _prefsService.init();
+      await _repo.ensureLoaded();
+      final contacts = _repo.contacts;
+      final analysis = _runAnalysis(contacts);
+
+      if (!mounted) return;
+      setState(() {
+        _contacts = contacts;
+        _suggestions = _intelligence.generateSuggestions(contacts);
+        _duplicates = analysis.duplicates;
+        _insights = analysis.insights;
+        _cleanupReport = analysis.cleanupReport;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _contacts = [];
+        _suggestions = [];
+        _duplicates = [];
+        _insights = null;
+        _cleanupReport = null;
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load insights: $e')));
+    }
   }
 
   Future<void> _mergeAllDuplicatesBySameNumber() async {
@@ -74,125 +86,11 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     );
   }
 
-  Widget _buildDuplicateCard(
-    DuplicateGroup group,
-    int index,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final percentage = (group.similarityScore * 100).toInt();
-    final canMergeBySameNumber = _hasSameNumberDuplicates(group);
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getSimilarityColor(
-                      group.similarityScore,
-                    ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$percentage% match',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _getSimilarityColor(group.similarityScore),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    group.reason,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...group.contacts.map(
-              (contact) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => _navigateToContact(contact),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        ContactAvatar(contact: contact, radius: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                contact.displayName,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (contact.phones.isNotEmpty)
-                                Text(
-                                  contact.phones.first.number,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (canMergeBySameNumber)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: _isMergingDuplicates
-                        ? null
-                        : () => _mergeDuplicatesBySameNumber(group),
-                    icon: _isMergingDuplicates
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.merge_type_rounded),
-                    label: const Text('Merge Same Number'),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
@@ -215,25 +113,25 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               unselectedLabelStyle: const TextStyle(fontSize: 12),
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              tabs: [
+              tabs: const [
                 Tab(
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                  icon: Icon(Icons.auto_awesome_rounded, size: 20),
                   text: 'Suggestions',
                 ),
                 Tab(
-                  icon: const Icon(Icons.copy_rounded, size: 20),
+                  icon: Icon(Icons.copy_rounded, size: 20),
                   text: 'Duplicates',
                 ),
                 Tab(
-                  icon: const Icon(Icons.category_rounded, size: 20),
+                  icon: Icon(Icons.category_rounded, size: 20),
                   text: 'Groups',
                 ),
                 Tab(
-                  icon: const Icon(Icons.insights_rounded, size: 20),
+                  icon: Icon(Icons.insights_rounded, size: 20),
                   text: 'Insights',
                 ),
                 Tab(
-                  icon: const Icon(Icons.cleaning_services_rounded, size: 20),
+                  icon: Icon(Icons.cleaning_services_rounded, size: 20),
                   text: 'Cleanup',
                 ),
               ],
@@ -499,12 +397,36 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFFF6B35),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFFF6B35),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.icon(
+                              onPressed: _isMergingDuplicates
+                                  ? null
+                                  : _mergeAllDuplicatesBySameNumber,
+                              icon: _isMergingDuplicates
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.merge_type_rounded),
+                              label: const Text('Merge All'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
