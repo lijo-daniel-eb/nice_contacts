@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
@@ -130,15 +131,15 @@ class _RecentsScreenState extends State<RecentsScreen>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xCC00C9FF), Color(0x991B98E0)],
+                    colors: [MyContactsColors.cCC00C9FF, MyContactsColors.c991B98E0],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: MyContactsColors.white.withValues(alpha: 0.25),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00C9FF).withValues(alpha: 0.25),
+                      color: MyContactsColors.cFF00C9FF.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -146,7 +147,7 @@ class _RecentsScreenState extends State<RecentsScreen>
                 ),
                 child: const Icon(
                   Icons.history_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 26,
                 ),
               ),
@@ -158,13 +159,13 @@ class _RecentsScreenState extends State<RecentsScreen>
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF00C9FF), Color(0xFF1B98E0)],
+                  colors: [MyContactsColors.cFF00C9FF, MyContactsColors.cFF1B98E0],
                 ).createShader(bounds),
                 child: Text(
                   'Recents',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -195,12 +196,12 @@ class _RecentsScreenState extends State<RecentsScreen>
           const SizedBox(width: 4),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF00C9FF).withValues(alpha: 0.08),
+              color: MyContactsColors.cFF00C9FF.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
               onPressed: _loadData,
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF00C9FF)),
+              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFF00C9FF),
               tooltip: 'Refresh',
             ),
           ),
@@ -231,8 +232,8 @@ class _RecentsScreenState extends State<RecentsScreen>
   Widget _tabButton(String label, int index, ColorScheme colorScheme) {
     final isSelected = _selectedTab == index;
     final tabColors = index == 0
-        ? [const Color(0xFF00C9FF), const Color(0xFF1B98E0)]
-        : [const Color(0xFFFFA62E), const Color(0xFFFF6B35)];
+        ? [MyContactsColors.cFF00C9FF, MyContactsColors.cFF1B98E0]
+        : [MyContactsColors.cFFFFA62E, MyContactsColors.cFFFF6B35];
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = index),
       child: AnimatedContainer(
@@ -240,7 +241,7 @@ class _RecentsScreenState extends State<RecentsScreen>
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           gradient: isSelected ? LinearGradient(colors: tabColors) : null,
-          color: isSelected ? null : Colors.transparent,
+          color: isSelected ? null : MyContactsColors.transparent,
           borderRadius: BorderRadius.circular(10),
           boxShadow: isSelected
               ? [
@@ -259,7 +260,7 @@ class _RecentsScreenState extends State<RecentsScreen>
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: isSelected
-                  ? Colors.white
+                  ? MyContactsColors.white
                   : colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
@@ -400,10 +401,10 @@ class _RecentsScreenState extends State<RecentsScreen>
       _ => Icons.touch_app_rounded,
     };
     final actionColor = switch (entry.recent.action) {
-      'call' => const Color(0xFF4CAF50),
-      'message' => const Color(0xFF2196F3),
-      'email' => const Color(0xFFFF9800),
-      'whatsapp' => const Color(0xFF25D366),
+      'call' => MyContactsColors.cFF4CAF50,
+      'message' => MyContactsColors.cFF2196F3,
+      'email' => MyContactsColors.cFFFF9800,
+      'whatsapp' => MyContactsColors.cFF25D366,
       _ => colorScheme.primary,
     };
 
@@ -512,7 +513,7 @@ class _RecentsScreenState extends State<RecentsScreen>
                         ? const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFFFFA62E), Color(0xFFFF6B35)],
+                            colors: [MyContactsColors.cFFFFA62E, MyContactsColors.cFFFF6B35],
                           )
                         : null,
                     color: index < 3
@@ -527,7 +528,7 @@ class _RecentsScreenState extends State<RecentsScreen>
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: index < 3
-                            ? Colors.white
+                            ? MyContactsColors.white
                             : colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                     ),

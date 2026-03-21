@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -120,15 +121,15 @@ class FavouritesScreenState extends State<FavouritesScreen>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xCCFFA62E), Color(0x99FF6B35)],
+                    colors: [MyContactsColors.cCCFFA62E, MyContactsColors.c99FF6B35],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: MyContactsColors.white.withValues(alpha: 0.25),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFA62E).withValues(alpha: 0.25),
+                      color: MyContactsColors.cFFFFA62E.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -136,7 +137,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
                 ),
                 child: const Icon(
                   Icons.star_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 26,
                 ),
               ),
@@ -148,13 +149,13 @@ class FavouritesScreenState extends State<FavouritesScreen>
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFFFA62E), Color(0xFFFF6B35)],
+                  colors: [MyContactsColors.cFFFFA62E, MyContactsColors.cFFFF6B35],
                 ).createShader(bounds),
                 child: Text(
                   'Favourites',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -169,12 +170,12 @@ class FavouritesScreenState extends State<FavouritesScreen>
           const Spacer(),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFFFA62E).withValues(alpha: 0.08),
+              color: MyContactsColors.cFFFFA62E.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
               onPressed: _loadFavourites,
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFFFFA62E)),
+              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFFFFA62E),
               tooltip: 'Refresh',
             ),
           ),
@@ -202,8 +203,8 @@ class FavouritesScreenState extends State<FavouritesScreen>
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFFFA62E).withValues(alpha: 0.18),
-                      const Color(0xFFFF6B35).withValues(alpha: 0.06),
+                      MyContactsColors.cFFFFA62E.withValues(alpha: 0.18),
+                      MyContactsColors.cFFFF6B35.withValues(alpha: 0.06),
                     ],
                   ),
                   shape: BoxShape.circle,
@@ -211,7 +212,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
                 child: Icon(
                   Icons.star_outline_rounded,
                   size: 56,
-                  color: const Color(0xFFFFA62E).withValues(alpha: 0.7),
+                  color: MyContactsColors.cFFFFA62E.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 24),
@@ -275,7 +276,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+            colors: [MyContactsColors.cFF43E97B, MyContactsColors.cFF38F9D7],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -284,12 +285,12 @@ class FavouritesScreenState extends State<FavouritesScreen>
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.call_rounded, color: Colors.white, size: 26),
+            Icon(Icons.call_rounded, color: MyContactsColors.white, size: 26),
             SizedBox(width: 6),
             Text(
               'Call',
               style: TextStyle(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -301,7 +302,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF2D6CDF), Color(0xFF1565C0)],
+            colors: [MyContactsColors.cFF2D6CDF, MyContactsColors.cFF1565C0],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -313,13 +314,13 @@ class FavouritesScreenState extends State<FavouritesScreen>
             Text(
               'Message',
               style: TextStyle(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
             SizedBox(width: 6),
-            Icon(Icons.message_rounded, color: Colors.white, size: 26),
+            Icon(Icons.message_rounded, color: MyContactsColors.white, size: 26),
           ],
         ),
       ),
@@ -398,7 +399,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
                   IconButton(
                     icon: const Icon(
                       Icons.star_rounded,
-                      color: Color(0xFFFFA62E),
+                      color: MyContactsColors.cFFFFA62E,
                     ),
                     onPressed: () async {
                       await _prefsService.toggleFavourite(contact.id);

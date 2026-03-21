@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/help_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -126,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: MyContactsColors.white.withValues(alpha: 0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -138,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 child: const Icon(
                   Icons.settings_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 26,
                 ),
               ),
@@ -156,7 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   'Settings',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -199,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             Text(
               'Contact Statistics',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -240,16 +241,16 @@ class _SettingsScreenState extends State<SettingsScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: MyContactsColors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: MyContactsColors.white, size: 22),
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: MyContactsColors.white,
               fontSize: 22,
               fontWeight: FontWeight.w800,
             ),
@@ -258,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: MyContactsColors.white.withValues(alpha: 0.8),
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -532,7 +533,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               child: const Icon(
                 Icons.contacts_rounded,
-                color: Colors.white,
+                color: MyContactsColors.white,
                 size: 32,
               ),
             ),
@@ -586,7 +587,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Material(
-        color: Colors.transparent,
+        color: MyContactsColors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -821,7 +822,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   color: Color(c.$1),
                   shape: BoxShape.circle,
                   border: isSelected
-                      ? Border.all(color: Colors.white, width: 3)
+                      ? Border.all(color: MyContactsColors.white, width: 3)
                       : null,
                   boxShadow: isSelected
                       ? [
@@ -835,7 +836,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 child: isSelected
                     ? const Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: MyContactsColors.white,
                         size: 24,
                       )
                     : null,

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
@@ -349,7 +350,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: MyContactsColors.red),
             child: const Text('Delete'),
           ),
         ],
@@ -596,7 +597,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                   child: Icon(
                     Icons.camera_alt_rounded,
                     size: 18,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -721,7 +722,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                 _phones[index].controller.dispose();
                 _phones.removeAt(index);
               }),
-              color: Colors.red.shade400,
+              color: MyContactsColors.redShade400,
             ),
         ],
       ),
@@ -778,7 +779,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                 _emails[index].controller.dispose();
                 _emails.removeAt(index);
               }),
-              color: Colors.red.shade400,
+              color: MyContactsColors.redShade400,
             ),
         ],
       ),
@@ -1067,7 +1068,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
                   _addresses[index].controller.dispose();
                   _addresses.removeAt(index);
                 }),
-                color: Colors.red.shade400,
+                color: MyContactsColors.redShade400,
               ),
             ],
           ),
@@ -1211,7 +1212,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
           IconButton(
             icon: const Icon(Icons.remove_circle_outline, size: 20),
             onPressed: () => setState(() => _events.removeAt(index)),
-            color: Colors.red.shade400,
+            color: MyContactsColors.redShade400,
           ),
         ],
       ),
@@ -1384,8 +1385,8 @@ class _EditContactScreenState extends State<EditContactScreen> {
         icon: const Icon(Icons.delete_forever_rounded),
         label: const Text('Delete Contact'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.red.shade600,
-          side: BorderSide(color: Colors.red.shade300),
+          foregroundColor: MyContactsColors.redShade600,
+          side: BorderSide(color: MyContactsColors.redShade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

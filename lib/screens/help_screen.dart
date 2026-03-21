@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -15,7 +16,7 @@ class HelpScreen extends StatelessWidget {
         title: 'Navigation',
         subtitle: 'Main tabs at the bottom',
         icon: Icons.space_dashboard_rounded,
-        color: Color(0xFF1D4ED8),
+        color: MyContactsColors.cFF1D4ED8,
         items: [
           _HelpItem(
             title: 'Contacts',
@@ -43,7 +44,7 @@ class HelpScreen extends StatelessWidget {
         title: 'Contacts Screen',
         subtitle: 'Finding and organizing contacts',
         icon: Icons.contacts_rounded,
-        color: Color(0xFF0F766E),
+        color: MyContactsColors.cFF0F766E,
         items: [
           _HelpItem(
             title: 'Search',
@@ -63,7 +64,7 @@ class HelpScreen extends StatelessWidget {
         title: 'Contact Details',
         subtitle: 'Actions for a selected contact',
         icon: Icons.person_pin_rounded,
-        color: Color(0xFFB45309),
+        color: MyContactsColors.cFFB45309,
         items: [
           _HelpItem(
             title: 'Quick Actions',
@@ -87,7 +88,7 @@ class HelpScreen extends StatelessWidget {
         title: 'Smart Tab',
         subtitle: 'Analysis and cleanup tools',
         icon: Icons.psychology_rounded,
-        color: Color(0xFF7C3AED),
+        color: MyContactsColors.cFF7C3AED,
         items: [
           _HelpItem(
             title: 'Suggestions',
@@ -115,7 +116,7 @@ class HelpScreen extends StatelessWidget {
         title: 'Settings Options',
         subtitle: 'Customize app behavior',
         icon: Icons.tune_rounded,
-        color: Color(0xFF334155),
+        color: MyContactsColors.cFF334155,
         items: [
           _HelpItem(title: 'Theme', description: 'Choose light, dark, or system mode.'),
           _HelpItem(title: 'Accent Color', description: 'Apply your preferred app color.'),
@@ -164,15 +165,15 @@ class HelpScreen extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
+                                color: MyContactsColors.white.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.25),
+                                  color: MyContactsColors.white.withValues(alpha: 0.25),
                                 ),
                               ),
                               child: const Icon(
                                 Icons.help_center_rounded,
-                                color: Colors.white,
+                                color: MyContactsColors.white,
                                 size: 28,
                               ),
                             ),
@@ -182,7 +183,7 @@ class HelpScreen extends StatelessWidget {
                         Text(
                           'Help Center',
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
+                            color: MyContactsColors.white,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -190,7 +191,7 @@ class HelpScreen extends StatelessWidget {
                         Text(
                           'Everything you can do in Smart Contacts, explained clearly.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: MyContactsColors.white.withValues(alpha: 0.9),
                             height: 1.4,
                           ),
                         ),

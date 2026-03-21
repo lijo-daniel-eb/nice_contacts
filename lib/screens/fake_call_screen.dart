@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
@@ -131,7 +132,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
     final hasPhoto = widget.contact.photoOrThumbnail != null || highRes != null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: MyContactsColors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -142,7 +143,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
               child: Image.memory(
                 highRes ?? widget.contact.photoOrThumbnail!,
                 fit: BoxFit.cover,
-                color: Colors.black.withValues(alpha: 0.5),
+                color: MyContactsColors.black.withValues(alpha: 0.5),
                 colorBlendMode: BlendMode.darken,
               ),
             )
@@ -152,13 +153,13 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF1A1A2E), Color(0xFF0F0F1A)],
+                  colors: [MyContactsColors.cFF1A1A2E, MyContactsColors.cFF0F0F1A],
                 ),
               ),
             ),
 
           // Dark overlay for contrast
-          Container(color: Colors.black.withValues(alpha: 0.3)),
+          Container(color: MyContactsColors.black.withValues(alpha: 0.3)),
 
           // Content
           SafeArea(
@@ -178,7 +179,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 Text(
                   widget.contact.displayName,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
@@ -190,7 +191,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 Text(
                   widget.phoneNumber,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: MyContactsColors.white.withValues(alpha: 0.7),
                     fontSize: 16,
                     letterSpacing: 1.2,
                   ),
@@ -205,8 +206,8 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                     key: ValueKey(_statusText),
                     style: TextStyle(
                       color: _callState == _CallState.connected
-                          ? const Color(0xFF4CAF50)
-                          : Colors.white.withValues(alpha: 0.6),
+                          ? MyContactsColors.cFF4CAF50
+                          : MyContactsColors.white.withValues(alpha: 0.6),
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -239,15 +240,15 @@ class _FakeCallScreenState extends State<FakeCallScreen>
     final (icon, color, text) = switch (_callState) {
       _CallState.ringing => (
         Icons.ring_volume_rounded,
-        const Color(0xFF4CAF50),
+        MyContactsColors.cFF4CAF50,
         'Incoming Call',
       ),
       _CallState.connected => (
         Icons.phone_in_talk_rounded,
-        const Color(0xFF2196F3),
+        MyContactsColors.cFF2196F3,
         'Connected',
       ),
-      _CallState.ended => (Icons.call_end_rounded, Colors.red, 'Ended'),
+      _CallState.ended => (Icons.call_end_rounded, MyContactsColors.red, 'Ended'),
     };
 
     return Container(
@@ -289,7 +290,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4CAF50).withValues(
+                    color: MyContactsColors.cFF4CAF50.withValues(
                       alpha: 0.3 * (_pulseAnimation.value - 1) * 6.67,
                     ),
                     blurRadius: 40,
@@ -369,20 +370,20 @@ class _FakeCallScreenState extends State<FakeCallScreen>
             height: 56,
             decoration: BoxDecoration(
               color: isActive
-                  ? Colors.white.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.1),
+                  ? MyContactsColors.white.withValues(alpha: 0.3)
+                  : MyContactsColors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: isActive ? 0.5 : 0.15),
+                color: MyContactsColors.white.withValues(alpha: isActive ? 0.5 : 0.15),
               ),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: MyContactsColors.white, size: 24),
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: MyContactsColors.white.withValues(alpha: 0.7),
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -406,13 +407,13 @@ class _FakeCallScreenState extends State<FakeCallScreen>
           children: [
             _buildRoundButton(
               icon: Icons.call_end_rounded,
-              color: Colors.red,
+              color: MyContactsColors.red,
               label: 'Decline',
               onTap: _endCall,
             ),
             _buildRoundButton(
               icon: Icons.call_rounded,
-              color: const Color(0xFF4CAF50),
+              color: MyContactsColors.cFF4CAF50,
               label: 'Accept',
               onTap: _answerCall,
             ),
@@ -424,7 +425,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
     // Connected: just the red end-call button
     return _buildRoundButton(
       icon: Icons.call_end_rounded,
-      color: Colors.red,
+      color: MyContactsColors.red,
       label: 'End Call',
       onTap: _endCall,
       size: 72,
@@ -457,13 +458,13 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: size * 0.45),
+            child: Icon(icon, color: MyContactsColors.white, size: size * 0.45),
           ),
           const SizedBox(height: 10),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: MyContactsColors.white.withValues(alpha: 0.8),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

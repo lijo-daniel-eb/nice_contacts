@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:my_contacts/screens/contacts_screen.dart';
 import 'package:my_contacts/screens/favourites_screen.dart';
 import 'package:my_contacts/screens/recents_screen.dart';
@@ -38,8 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final navLabelStyle = MaterialStateProperty.resolveWith<TextStyle>((states) {
-      final selected = states.contains(MaterialState.selected);
+    final navLabelStyle = WidgetStateProperty.resolveWith<TextStyle>((states) {
+      final selected = states.contains(WidgetState.selected);
       return TextStyle(
         fontSize: 12,
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -64,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
+                    color: MyContactsColors.black.withValues(alpha: 0.16),
                     blurRadius: 28,
                     offset: const Offset(0, 10),
                   ),
@@ -109,8 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: colorScheme.primary.withValues(alpha: 0.20),
                       ),
                     ),
-                    backgroundColor: Colors.transparent,
-                    surfaceTintColor: Colors.transparent,
+                    backgroundColor: MyContactsColors.transparent,
+                    surfaceTintColor: MyContactsColors.transparent,
                     elevation: 0,
                     animationDuration: const Duration(milliseconds: 500),
                     labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -120,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.contacts_outlined,
                         Icons.contacts_rounded,
                         'Contacts',
-                        const Color(0xFF1D4ED8),
+                        _tabAccent(0, colorScheme),
                         colorScheme,
                         0,
                       ),
@@ -128,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.star_outline_rounded,
                         Icons.star_rounded,
                         'Favourites',
-                        const Color(0xFFB45309),
+                        _tabAccent(1, colorScheme),
                         colorScheme,
                         1,
                       ),
@@ -136,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.history_outlined,
                         Icons.history_rounded,
                         'Recents',
-                        const Color(0xFF0F766E),
+                        _tabAccent(2, colorScheme),
                         colorScheme,
                         2,
                       ),
@@ -144,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.psychology_outlined,
                         Icons.psychology_rounded,
                         'Smart',
-                        const Color(0xFF7C3AED),
+                        _tabAccent(3, colorScheme),
                         colorScheme,
                         3,
                       ),
@@ -152,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.settings_outlined,
                         Icons.settings_rounded,
                         'Settings',
-                        const Color(0xFF334155),
+                        _tabAccent(4, colorScheme),
                         colorScheme,
                         4,
                       ),
@@ -193,5 +194,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       label: label,
     );
+  }
+
+  Color _tabAccent(int index, ColorScheme scheme) {
+    final base = [
+      scheme.primary,
+      scheme.secondary,
+      scheme.tertiary,
+      scheme.primary,
+      scheme.secondary,
+    ][index % 5];
+    final hsl = HSLColor.fromColor(base);
+    final shift = [-8.0, 18.0, -22.0, 36.0, -36.0][index % 5];
+    return hsl.withHue((hsl.hue + shift) % 360).withSaturation((hsl.saturation + 0.08).clamp(0, 1)).toColor();
   }
 }

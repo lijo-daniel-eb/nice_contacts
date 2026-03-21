@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
@@ -227,14 +228,14 @@ class ContactsScreenState extends State<ContactsScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1B98E0).withValues(alpha: 0.7),
+                      MyContactsColors.cFF1B98E0.withValues(alpha: 0.7),
                       colorScheme.primary.withValues(alpha: 0.5),
                       colorScheme.tertiary.withValues(alpha: 0.4),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: MyContactsColors.white.withValues(alpha: 0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -246,7 +247,7 @@ class ContactsScreenState extends State<ContactsScreen>
                 ),
                 child: const Icon(
                   Icons.contacts_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 26,
                 ),
               ),
@@ -264,7 +265,7 @@ class ContactsScreenState extends State<ContactsScreen>
                   'Smart Contacts',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -736,7 +737,7 @@ class ContactsScreenState extends State<ContactsScreen>
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+            colors: [MyContactsColors.cFF43E97B, MyContactsColors.cFF38F9D7],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -745,12 +746,12 @@ class ContactsScreenState extends State<ContactsScreen>
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.call_rounded, color: Colors.white, size: 26),
+            Icon(Icons.call_rounded, color: MyContactsColors.white, size: 26),
             SizedBox(width: 6),
             Text(
               'Call',
               style: TextStyle(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -762,7 +763,7 @@ class ContactsScreenState extends State<ContactsScreen>
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF2D6CDF), Color(0xFF1565C0)],
+            colors: [MyContactsColors.cFF2D6CDF, MyContactsColors.cFF1565C0],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -774,13 +775,13 @@ class ContactsScreenState extends State<ContactsScreen>
             Text(
               'Message',
               style: TextStyle(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
             SizedBox(width: 6),
-            Icon(Icons.message_rounded, color: Colors.white, size: 26),
+            Icon(Icons.message_rounded, color: MyContactsColors.white, size: 26),
           ],
         ),
       ),
@@ -889,7 +890,7 @@ class ContactsScreenState extends State<ContactsScreen>
                         isFav ? Icons.star_rounded : Icons.star_outline_rounded,
                         key: ValueKey(isFav),
                         color: isFav
-                            ? const Color(0xFFFFA62E)
+                            ? MyContactsColors.cFFFFA62E
                             : colorScheme.onSurface.withValues(alpha: 0.18),
                         size: 22,
                       ),

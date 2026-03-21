@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/contact_intelligence_service.dart';
@@ -103,7 +104,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               unselectedLabelColor: colorScheme.onSurface.withValues(
                 alpha: 0.5,
               ),
-              indicatorColor: const Color(0xFF4ECDC4),
+              indicatorColor: MyContactsColors.cFF4ECDC4,
               indicatorWeight: 3,
               dividerHeight: 0,
               labelStyle: const TextStyle(
@@ -171,15 +172,15 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xCC1B98E0), Color(0x994ECDC4)],
+                    colors: [MyContactsColors.cCC1B98E0, MyContactsColors.c994ECDC4],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: MyContactsColors.white.withValues(alpha: 0.25),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1B98E0).withValues(alpha: 0.25),
+                      color: MyContactsColors.cFF1B98E0.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -187,7 +188,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 ),
                 child: const Icon(
                   Icons.psychology_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 26,
                 ),
               ),
@@ -199,13 +200,13 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF1B98E0), Color(0xFF4ECDC4)],
+                  colors: [MyContactsColors.cFF1B98E0, MyContactsColors.cFF4ECDC4],
                 ).createShader(bounds),
                 child: Text(
                   'Smart Insights',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                   ),
                 ),
               ),
@@ -220,7 +221,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
           const Spacer(),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF4ECDC4).withValues(alpha: 0.08),
+              color: MyContactsColors.cFF4ECDC4.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -228,7 +229,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                 setState(() => _isLoading = true);
                 _loadData();
               },
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4ECDC4)),
+              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFF4ECDC4),
             ),
           ),
         ],
@@ -273,10 +274,10 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     };
 
     final color = switch (suggestion.type) {
-      SuggestionType.reconnect => const Color(0xFF4CAF50),
-      SuggestionType.birthday => const Color(0xFFFF6B35),
-      SuggestionType.completeInfo => const Color(0xFFFFA62E),
-      SuggestionType.addToFavourites => const Color(0xFF1B98E0),
+      SuggestionType.reconnect => MyContactsColors.cFF4CAF50,
+      SuggestionType.birthday => MyContactsColors.cFFFF6B35,
+      SuggestionType.completeInfo => MyContactsColors.cFFFFA62E,
+      SuggestionType.addToFavourites => MyContactsColors.cFF1B98E0,
     };
 
     return Card(
@@ -382,7 +383,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Card(
               elevation: 0,
-              color: const Color(0xFFFF6B35).withValues(alpha: 0.1),
+              color: MyContactsColors.cFFFF6B35.withValues(alpha: 0.1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -392,7 +393,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   children: [
                     const Icon(
                       Icons.warning_amber_rounded,
-                      color: Color(0xFFFF6B35),
+                      color: MyContactsColors.cFFFF6B35,
                       size: 28,
                     ),
                     const SizedBox(width: 12),
@@ -404,7 +405,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                             'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFFFF6B35),
+                              color: MyContactsColors.cFFFF6B35,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -812,9 +813,9 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   }
 
   Color _getSimilarityColor(double score) {
-    if (score >= 0.9) return const Color(0xFFFF4444);
-    if (score >= 0.8) return const Color(0xFFFF6B35);
-    return const Color(0xFFFFA62E);
+    if (score >= 0.9) return MyContactsColors.cFFFF4444;
+    if (score >= 0.8) return MyContactsColors.cFFFF6B35;
+    return MyContactsColors.cFFFFA62E;
   }
 
   // ─────────────────────────────────────────────
@@ -952,7 +953,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ) {
     final color = _groupColor(group.name);
     return Material(
-      color: Colors.transparent,
+      color: MyContactsColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openGroupContactsList(group, theme, colorScheme),
@@ -976,15 +977,15 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFC857),
+                      color: MyContactsColors.cFFFFC857,
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: const Color(0xFFF4A300)),
+                      border: Border.all(color: MyContactsColors.cFFF4A300),
                     ),
                     child: Text(
                       '${group.contacts.length}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF3B2A00),
+                        color: MyContactsColors.cFF3B2A00,
                         letterSpacing: 0.2,
                       ),
                     ),
@@ -1065,24 +1066,24 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
 
   Color _groupColor(String name) {
     return switch (name) {
-      'Work' => const Color(0xFF1B98E0),
-      'Personal' => const Color(0xFF4ECDC4),
-      'Family' => const Color(0xFFFF6B35),
-      'Social' => const Color(0xFFFFA62E),
+      'Work' => MyContactsColors.cFF1B98E0,
+      'Personal' => MyContactsColors.cFF4ECDC4,
+      'Family' => MyContactsColors.cFFFF6B35,
+      'Social' => MyContactsColors.cFFFFA62E,
       _ => _colorFromName(name),
     };
   }
 
   Color _colorFromName(String name) {
     const palette = [
-      Color(0xFF1B98E0),
-      Color(0xFF7C3AED),
-      Color(0xFF0F766E),
-      Color(0xFFB45309),
-      Color(0xFFD63031),
-      Color(0xFF4CAF50),
-      Color(0xFF2196F3),
-      Color(0xFFFF9800),
+      MyContactsColors.cFF1B98E0,
+      MyContactsColors.cFF7C3AED,
+      MyContactsColors.cFF0F766E,
+      MyContactsColors.cFFB45309,
+      MyContactsColors.cFFD63031,
+      MyContactsColors.cFF4CAF50,
+      MyContactsColors.cFF2196F3,
+      MyContactsColors.cFFFF9800,
     ];
 
     final hash = name.toLowerCase().runes.fold<int>(0, (a, b) => a + b);
@@ -1147,10 +1148,10 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ) {
     final percentage = (ins.averageCompleteness * 100).toInt();
     final color = percentage >= 70
-        ? const Color(0xFF4CAF50)
+        ? MyContactsColors.cFF4CAF50
         : percentage >= 40
-        ? const Color(0xFFFFA62E)
-        : const Color(0xFFFF4444);
+        ? MyContactsColors.cFFFFA62E
+        : MyContactsColors.cFFFF4444;
 
     return Card(
       elevation: 0,
@@ -1235,37 +1236,37 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         'Total',
         '${ins.totalContacts}',
         Icons.people_rounded,
-        const Color(0xFF1B98E0),
+        MyContactsColors.cFF1B98E0,
       ),
       _StatItem(
         'With Phone',
         '${ins.withPhone}',
         Icons.phone_rounded,
-        const Color(0xFF4CAF50),
+        MyContactsColors.cFF4CAF50,
       ),
       _StatItem(
         'With Email',
         '${ins.withEmail}',
         Icons.email_rounded,
-        const Color(0xFF2196F3),
+        MyContactsColors.cFF2196F3,
       ),
       _StatItem(
         'With Company',
         '${ins.withOrganization}',
         Icons.business_rounded,
-        const Color(0xFFFFA62E),
+        MyContactsColors.cFFFFA62E,
       ),
       _StatItem(
         'With Photo',
         '${ins.withPhoto}',
         Icons.photo_camera_rounded,
-        const Color(0xFFFF6B35),
+        MyContactsColors.cFFFF6B35,
       ),
       _StatItem(
         'With Birthday',
         '${ins.withBirthday}',
         Icons.cake_rounded,
-        const Color(0xFF4ECDC4),
+        MyContactsColors.cFF4ECDC4,
       ),
     ];
 
@@ -1404,7 +1405,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ) {
     return Card(
       elevation: 0,
-      color: const Color(0xFFFFA62E).withValues(alpha: 0.08),
+      color: MyContactsColors.cFFFFA62E.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1415,7 +1416,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               children: [
                 const Icon(
                   Icons.warning_amber_rounded,
-                  color: Color(0xFFFFA62E),
+                  color: MyContactsColors.cFFFFA62E,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -1423,7 +1424,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                   'Incomplete Contacts (${ins.incompleteContacts.length})',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFFFFA62E),
+                    color: MyContactsColors.cFFFFA62E,
                   ),
                 ),
               ],
@@ -1453,7 +1454,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFA62E).withValues(alpha: 0.15),
+                        color: MyContactsColors.cFFFFA62E.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1461,7 +1462,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFFFA62E),
+                          color: MyContactsColors.cFFFFA62E,
                         ),
                       ),
                     ),
@@ -1567,10 +1568,10 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   ) {
     final percentage = (report.healthScore * 100).round();
     final healthColor = percentage >= 80
-        ? Colors.green
+        ? MyContactsColors.green
         : percentage >= 50
-        ? Colors.orange
-        : Colors.red;
+        ? MyContactsColors.orange
+        : MyContactsColors.red;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1659,9 +1660,9 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     ColorScheme colorScheme,
   ) {
     final severityColor = switch (suggestion.severity) {
-      CleanupSeverity.high => Colors.red,
-      CleanupSeverity.medium => Colors.orange,
-      CleanupSeverity.low => Colors.blue,
+      CleanupSeverity.high => MyContactsColors.red,
+      CleanupSeverity.medium => MyContactsColors.orange,
+      CleanupSeverity.low => MyContactsColors.blue,
     };
 
     return Container(
@@ -1672,7 +1673,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
         border: Border.all(color: severityColor.withValues(alpha: 0.3)),
       ),
       child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
+        data: theme.copyWith(dividerColor: MyContactsColors.transparent),
         child: ExpansionTile(
           leading: Container(
             width: 44,

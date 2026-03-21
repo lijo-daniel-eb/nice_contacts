@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
@@ -454,7 +455,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                                 tooltip: 'Delete schedule',
                                 icon: const Icon(
                                   Icons.delete_outline_rounded,
-                                  color: Colors.red,
+                                  color: MyContactsColors.red,
                                 ),
                                 onPressed: () async {
                                   await _fakeCallScheduler.cancelScheduledFakeCall(
@@ -596,8 +597,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.1),
-                  Colors.black.withValues(alpha: 0.65),
+                  MyContactsColors.black.withValues(alpha: 0.1),
+                  MyContactsColors.black.withValues(alpha: 0.65),
                 ],
                 stops: const [0.3, 1.0],
               ),
@@ -615,12 +616,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                 Text(
                   contact.displayName,
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                     fontWeight: FontWeight.w700,
                     shadows: [
                       Shadow(
                         blurRadius: 8,
-                        color: Colors.black.withValues(alpha: 0.5),
+                        color: MyContactsColors.black.withValues(alpha: 0.5),
                       ),
                     ],
                   ),
@@ -631,11 +632,11 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   Text(
                     contact.organizations.first.company,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: MyContactsColors.white.withValues(alpha: 0.9),
                       shadows: [
                         Shadow(
                           blurRadius: 6,
-                          color: Colors.black.withValues(alpha: 0.5),
+                          color: MyContactsColors.black.withValues(alpha: 0.5),
                         ),
                       ],
                     ),
@@ -679,7 +680,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
             Text(
               contact.displayName,
               style: theme.textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
+                color: MyContactsColors.white,
                 fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.center,
@@ -689,7 +690,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               Text(
                 contact.organizations.first.company,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: MyContactsColors.white.withValues(alpha: 0.8),
                 ),
               ),
           ],
@@ -719,12 +720,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: MyContactsColors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.arrow_back_rounded,
-                  color: Colors.white,
+                  color: MyContactsColors.white,
                   size: 20,
                 ),
               ),
@@ -735,12 +736,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: MyContactsColors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
                     Icons.edit_rounded,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                     size: 20,
                   ),
                 ),
@@ -750,7 +751,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: MyContactsColors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -758,8 +759,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                         ? Icons.star_rounded
                         : Icons.star_outline_rounded,
                     color: _isFavourite
-                        ? const Color(0xFFFFA62E)
-                        : Colors.white,
+                        ? MyContactsColors.cFFFFA62E
+                        : MyContactsColors.white,
                     size: 20,
                   ),
                 ),
@@ -769,12 +770,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: MyContactsColors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
                     Icons.share_rounded,
-                    color: Colors.white,
+                    color: MyContactsColors.white,
                     size: 20,
                   ),
                 ),
@@ -798,7 +799,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       context,
                       icon: Icons.call_rounded,
                       label: 'Call',
-                      color: const Color(0xFF4CAF50),
+                      color: MyContactsColors.cFF4CAF50,
                       onTap: () => _makeCall(contact.phones.first.number),
                     ),
                   if (contact.phones.isNotEmpty)
@@ -806,7 +807,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       context,
                       icon: Icons.phone_callback_rounded,
                       label: 'Fake Call',
-                      color: const Color(0xFFE91E63),
+                      color: MyContactsColors.cFFE91E63,
                       onTap: () => _fakeCall(contact.phones.first.number),
                     ),
                   if (contact.phones.isNotEmpty)
@@ -814,7 +815,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       context,
                       icon: Icons.message_rounded,
                       label: 'Message',
-                      color: const Color(0xFF2196F3),
+                      color: MyContactsColors.cFF2196F3,
                       onTap: () => _sendSms(contact.phones.first.number),
                     ),
                   if (contact.phones.isNotEmpty)
@@ -822,7 +823,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       context,
                       icon: FontAwesomeIcons.whatsapp,
                       label: 'WhatsApp',
-                      color: const Color(0xFF25D366),
+                      color: MyContactsColors.cFF25D366,
                       onTap: () => _openWhatsApp(contact.phones.first.number),
                     ),
                   if (contact.emails.isNotEmpty)
@@ -830,7 +831,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       context,
                       icon: Icons.email_rounded,
                       label: 'Email',
-                      color: const Color(0xFFFF9800),
+                      color: MyContactsColors.cFFFF9800,
                       onTap: () => _sendEmail(contact.emails.first.address),
                     ),
                   _buildQuickAction(
@@ -1007,8 +1008,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF4CAF50).withValues(alpha: 0.15),
-                        const Color(0xFF4CAF50).withValues(alpha: 0.05),
+                        MyContactsColors.cFF4CAF50.withValues(alpha: 0.15),
+                        MyContactsColors.cFF4CAF50.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -1016,7 +1017,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   child: const Icon(
                     Icons.phone_rounded,
                     size: 16,
-                    color: Color(0xFF4CAF50),
+                    color: MyContactsColors.cFF4CAF50,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1084,28 +1085,28 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       ),
                       _iconActionButton(
                         icon: Icons.call_rounded,
-                        color: const Color(0xFF4CAF50),
+                        color: MyContactsColors.cFF4CAF50,
                         tooltip: 'Call',
                         onTap: () => _makeCall(phone.number),
                       ),
                       const SizedBox(width: 8),
                       _iconActionButton(
                         icon: Icons.phone_callback_rounded,
-                        color: const Color(0xFFE91E63),
+                        color: MyContactsColors.cFFE91E63,
                         tooltip: 'Fake Call',
                         onTap: () => _fakeCall(phone.number),
                       ),
                       const SizedBox(width: 8),
                       _iconActionButton(
                         icon: Icons.message_rounded,
-                        color: const Color(0xFF2196F3),
+                        color: MyContactsColors.cFF2196F3,
                         tooltip: 'Message',
                         onTap: () => _sendSms(phone.number),
                       ),
                       const SizedBox(width: 8),
                       _iconActionButton(
                         icon: FontAwesomeIcons.whatsapp,
-                        color: const Color(0xFF25D366),
+                        color: MyContactsColors.cFF25D366,
                         tooltip: 'WhatsApp',
                         onTap: () => _openWhatsApp(phone.number),
                       ),
@@ -1164,8 +1165,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                        const Color(0xFF7C3AED).withValues(alpha: 0.05),
+                        MyContactsColors.cFF7C3AED.withValues(alpha: 0.15),
+                        MyContactsColors.cFF7C3AED.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -1173,7 +1174,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   child: const Icon(
                     Icons.graphic_eq_rounded,
                     size: 16,
-                    color: Color(0xFF7C3AED),
+                    color: MyContactsColors.cFF7C3AED,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1255,7 +1256,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                             ? Icons.pause_circle_filled_rounded
                             : Icons.play_circle_fill_rounded,
                         color: isPlaying
-                            ? const Color(0xFF4CAF50)
+                            ? MyContactsColors.cFF4CAF50
                             : colorScheme.primary.withValues(alpha: 0.78),
                         size: 26,
                       ),
@@ -1442,7 +1443,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                                   ? Icons.pause_circle_filled_rounded
                                   : Icons.play_circle_fill_rounded,
                               color: isPlaying
-                                  ? const Color(0xFF4CAF50)
+                                  ? MyContactsColors.cFF4CAF50
                                   : colorScheme.primary.withValues(alpha: 0.78),
                             ),
                           ),
@@ -1500,8 +1501,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFFFF9800).withValues(alpha: 0.15),
-                        const Color(0xFFFF9800).withValues(alpha: 0.05),
+                        MyContactsColors.cFFFF9800.withValues(alpha: 0.15),
+                        MyContactsColors.cFFFF9800.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -1509,7 +1510,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   child: const Icon(
                     Icons.email_rounded,
                     size: 16,
-                    color: Color(0xFFFF9800),
+                    color: MyContactsColors.cFFFF9800,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1577,7 +1578,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       ),
                       _iconActionButton(
                         icon: Icons.send_rounded,
-                        color: const Color(0xFFFF9800),
+                        color: MyContactsColors.cFFFF9800,
                         tooltip: 'Send email',
                         onTap: () => _sendEmail(email.address),
                       ),
@@ -1709,8 +1710,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                        const Color(0xFF7C3AED).withValues(alpha: 0.05),
+                        MyContactsColors.cFF7C3AED.withValues(alpha: 0.15),
+                        MyContactsColors.cFF7C3AED.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -1718,7 +1719,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   child: const Icon(
                     Icons.group_work_rounded,
                     size: 16,
-                    color: Color(0xFF7C3AED),
+                    color: MyContactsColors.cFF7C3AED,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1801,8 +1802,8 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF1B98E0).withValues(alpha: 0.15),
-                        const Color(0xFF1B98E0).withValues(alpha: 0.05),
+                        MyContactsColors.cFF1B98E0.withValues(alpha: 0.15),
+                        MyContactsColors.cFF1B98E0.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -1810,7 +1811,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                   child: const Icon(
                     Icons.business_rounded,
                     size: 16,
-                    color: Color(0xFF1B98E0),
+                    color: MyContactsColors.cFF1B98E0,
                   ),
                 ),
                 const SizedBox(width: 10),
