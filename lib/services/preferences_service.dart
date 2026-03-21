@@ -13,7 +13,6 @@ class PreferencesService {
   static const String _sortOrderKey = 'sort_order';
   static const String _defaultTabKey = 'default_tab';
   static const String _showPhoneInListKey = 'show_phone_in_list';
-  static const String _accentColorKey = 'accent_color';
   static const String _autoAttendFakeCallsKey = 'auto_attend_fake_calls';
   static const String _callRecordingsPathKey = 'call_recordings_path';
   static const String _availableContactGroupsKey = 'available_contact_groups';
@@ -243,10 +242,6 @@ class PreferencesService {
       _prefs.getBool(_autoAttendFakeCallsKey) ?? true;
   Future<void> setAutoAttendFakeCalls(bool enabled) =>
       _prefs.setBool(_autoAttendFakeCallsKey, enabled);
-
-  int getAccentColor() => _prefs.getInt(_accentColorKey) ?? 0xFF1B98E0;
-  Future<void> setAccentColor(int color) =>
-      _prefs.setInt(_accentColorKey, color);
 
   String getCallRecordingsPath() => _prefs.getString(_callRecordingsPathKey) ?? '';
   Future<void> setCallRecordingsPath(String path) =>

@@ -18,13 +18,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = Color(PreferencesService().getAccentColor());
     return MaterialApp(
       navigatorKey: FakeCallSchedulerService.navigatorKey,
       title: 'Smart Contacts',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(accentColor),
-      darkTheme: AppTheme.dark(accentColor),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       themeMode: _getThemeMode(),
       home: const HomeScreen(),
     );

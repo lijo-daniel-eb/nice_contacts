@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_contacts/theme/my_contacts_theme.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/screens/help_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
@@ -80,7 +79,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 20),
             _buildSectionTitle('Appearance', theme, colorScheme),
             _buildThemeSetting(theme, colorScheme),
-            _buildAccentColorSetting(theme, colorScheme),
             const SizedBox(height: 16),
             _buildSectionTitle('Display', theme, colorScheme),
             _buildShowPhoneSetting(theme, colorScheme),
@@ -300,31 +298,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       colorScheme: colorScheme,
       theme: theme,
       onTap: () => _showThemeDialog(colorScheme),
-    );
-  }
-
-  Widget _buildAccentColorSetting(ThemeData theme, ColorScheme colorScheme) {
-    final colors = [
-      (0xFF1B98E0, 'Steel Blue'),
-      (0xFFFF6B35, 'Orange'),
-      (0xFF4CAF50, 'Green'),
-      (0xFFFF9800, 'Orange'),
-      (0xFF2196F3, 'Blue'),
-      (0xFFD63031, 'Red'),
-      (0xFF00BCD4, 'Teal'),
-    ];
-    final current = _prefsService.getAccentColor();
-    final currentName = colors
-        .firstWhere((c) => c.$1 == current, orElse: () => colors[0])
-        .$2;
-
-    return _buildSettingTile(
-      icon: Icons.color_lens_rounded,
-      title: 'Accent Color',
-      subtitle: currentName,
-      colorScheme: colorScheme,
-      theme: theme,
-      onTap: () => _showAccentColorDialog(colorScheme, colors),
     );
   }
 
@@ -788,59 +761,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                   setState(() {});
                 }
               },
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  void _showAccentColorDialog(
-    ColorScheme colorScheme,
-    List<(int, String)> colors,
-  ) {
-    final current = _prefsService.getAccentColor();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Accent Color'),
-        content: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: colors.map((c) {
-            final isSelected = c.$1 == current;
-            return GestureDetector(
-              onTap: () async {
-                await _prefsService.setAccentColor(c.$1);
-                Navigator.pop(ctx);
-                setState(() {});
-              },
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Color(c.$1),
-                  shape: BoxShape.circle,
-                  border: isSelected
-                      ? Border.all(color: MyContactsColors.white, width: 3)
-                      : null,
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Color(c.$1).withValues(alpha: 0.5),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: isSelected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: MyContactsColors.white,
-                        size: 24,
-                      )
-                    : null,
-              ),
             );
           }).toList(),
         ),

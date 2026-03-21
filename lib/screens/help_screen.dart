@@ -119,7 +119,6 @@ class HelpScreen extends StatelessWidget {
         color: MyContactsColors.cFF334155,
         items: [
           _HelpItem(title: 'Theme', description: 'Choose light, dark, or system mode.'),
-          _HelpItem(title: 'Accent Color', description: 'Apply your preferred app color.'),
           _HelpItem(title: 'Show Phone in List', description: 'Show or hide phone number in contact rows.'),
           _HelpItem(title: 'Auto Attend Fake Calls', description: 'Auto-answer fake calls after a short delay.'),
           _HelpItem(title: 'Sort Order', description: 'Sort contacts by first name or last name.'),

@@ -177,11 +177,17 @@ class _HomeScreenState extends State<HomeScreen> {
     int index,
   ) {
     final isSelected = _currentIndex == index;
+    final selectedIconColor =
+        colorScheme.brightness == Brightness.dark &&
+            accentColor.computeLuminance() < 0.4
+        ? colorScheme.onSurface
+        : accentColor;
+
     return NavigationDestination(
       icon: Icon(
         icon,
         color: isSelected
-            ? accentColor
+            ? selectedIconColor
             : colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
       ),
       selectedIcon: Container(
@@ -190,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: accentColor.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(selectedIcon, color: accentColor),
+        child: Icon(selectedIcon, color: selectedIconColor),
       ),
       label: label,
     );

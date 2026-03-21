@@ -23,14 +23,16 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light(Color accent) {
+  static const Color _accent = MyContactsColors.cFF1B98E0;
+
+  static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
+      seedColor: _accent,
       brightness: Brightness.light,
     ).copyWith(
-      primary: accent,
-      secondary: _shiftHue(accent, 24),
-      tertiary: _shiftHue(accent, 48),
+      primary: _accent,
+      secondary: _shiftHue(_accent, 24),
+      tertiary: _shiftHue(_accent, 48),
       surface: AppColors.lightSurface,
       surfaceContainerHighest: AppColors.lightSurfaceAlt,
       outline: AppColors.lightBorder,
@@ -66,7 +68,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: _accent,
           foregroundColor: MyContactsColors.white,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -75,7 +77,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: _accent,
           foregroundColor: MyContactsColors.white,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           elevation: 0,
@@ -85,8 +87,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: accent,
-          side: BorderSide(color: accent.withValues(alpha: 0.8), width: 1.4),
+          foregroundColor: _accent,
+          side: BorderSide(color: _accent.withValues(alpha: 0.8), width: 1.4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
@@ -105,12 +107,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: accent, width: 1.5),
+          borderSide: BorderSide(color: _accent, width: 1.5),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.lightSurface,
-        indicatorColor: accent.withValues(alpha: 0.16),
+        indicatorColor: _accent.withValues(alpha: 0.16),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.lightSurface,
@@ -131,14 +133,14 @@ class AppTheme {
     );
   }
 
-  static ThemeData dark(Color accent) {
+  static ThemeData dark() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
+      seedColor: _accent,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: accent,
-      secondary: _shiftHue(accent, 24),
-      tertiary: _shiftHue(accent, 48),
+      primary: _accent,
+      secondary: _shiftHue(_accent, 24),
+      tertiary: _shiftHue(_accent, 48),
       surface: AppColors.darkSurface,
       surfaceContainerHighest: AppColors.darkSurfaceAlt,
       outline: AppColors.darkBorder,
@@ -174,7 +176,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: _accent,
           foregroundColor: AppColors.darkBg,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -183,7 +185,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: _accent,
           foregroundColor: AppColors.darkBg,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           elevation: 0,
@@ -193,8 +195,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: accent,
-          side: BorderSide(color: accent.withValues(alpha: 0.8), width: 1.4),
+          foregroundColor: _accent,
+          side: BorderSide(color: _accent.withValues(alpha: 0.8), width: 1.4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
@@ -213,12 +215,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: accent, width: 1.5),
+          borderSide: BorderSide(color: _accent, width: 1.5),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.darkSurface,
-        indicatorColor: accent.withValues(alpha: 0.2),
+        indicatorColor: _accent.withValues(alpha: 0.2),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.darkSurface,
