@@ -77,4 +77,17 @@ class MyContactsColors {
   static const Color cFFB8B0A0 = Color(0xFFB8B0A0);
   static const Color cFF2A261F = Color(0xFF2A261F);
   static const Color cFF726A5E = Color(0xFF726A5E);
+
+  // Reference-inspired semantic palette (used by app_theme.dart and screens).
+  static const Color refMint       = Color(0xFFA7E5DA);
+  static const Color refSky        = Color(0xFFDDE7F4);
+  static const Color refPage       = Color(0xFFE9EFF6);
+  static const Color refPanel      = Color(0xFFF2F5F8);
+  static const Color refPanelStrong = Color(0xFFE4EBF1);
+  static const Color refText       = Color(0xFF13181D);
+  static const Color refMutedText  = Color(0xFF6D7680);
+  static const Color refLavender   = Color(0xFFC7AFE8);
+  static const Color refYellow     = Color(0xFFECE971);
+  static const Color refCoral      = Color(0xFFF39D8C);
+  static const Color refGreen      = Color(0xFF6BE999);
 }
