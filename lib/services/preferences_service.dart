@@ -18,6 +18,7 @@ class PreferencesService {
   static const String _availableContactGroupsKey = 'available_contact_groups';
   static const String _contactGroupsMapKey = 'contact_groups_map';
   static const String _availableOrganizationTagsKey = 'available_organization_tags';
+  static const String _contactRingtoneMapKey = 'contact_ringtone_map';
 
   static const List<String> _defaultContactGroups = [
     'Family',
@@ -248,6 +249,41 @@ class PreferencesService {
       _prefs.setString(_callRecordingsPathKey, path);
   Future<void> clearCallRecordingsPath() =>
       _prefs.remove(_callRecordingsPathKey);
+
+  // --- Per-contact Ringtone ---
+
+  String? getContactRingtone(String contactId) {
+    final raw = _prefs.getString(_contactRingtoneMapKey);
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return map[contactId] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setContactRingtone(String contactId, String path) async {
+    final raw = _prefs.getString(_contactRingtoneMapKey);
+    final map = <String, dynamic>{};
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        map.addAll(jsonDecode(raw) as Map<String, dynamic>);
+      } catch (_) {}
+    }
+    map[contactId] = path;
+    await _prefs.setString(_contactRingtoneMapKey, jsonEncode(map));
+  }
+
+  Future<void> clearContactRingtone(String contactId) async {
+    final raw = _prefs.getString(_contactRingtoneMapKey);
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      map.remove(contactId);
+      await _prefs.setString(_contactRingtoneMapKey, jsonEncode(map));
+    } catch (_) {}
+  }
 }
 
 class RecentContact {

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:my_contacts/screens/fake_call_screen.dart';
 import 'package:my_contacts/services/call_recordings_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
+import 'package:my_contacts/services/contact_ringtone_service.dart';
 import 'package:my_contacts/services/fake_call_scheduler_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
@@ -40,6 +42,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   bool _isLoadingRecordings = false;
   bool _isRecordingActionBusy = false;
   String? _playingRecordingPath;
+  String? _customRingtone;
   List<CallRecordingItem> _callRecordings = const [];
   List<String> _contactGroups = const [];
 
@@ -50,6 +53,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     super.initState();
     _currentContact = widget.contact;
     _isFavourite = _prefsService.isFavourite(contact.id);
+    _customRingtone = _prefsService.getContactRingtone(contact.id);
     _repo.addListener(_onRepoUpdated);
     // Kick off high-res photo load
     _repo.getHighResPhoto(contact.id);
@@ -166,6 +170,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               contact: contact,
               phoneNumber: number,
               autoAttend: _prefsService.getAutoAttendFakeCalls(),
+              ringtonePath: _customRingtone,
             ),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -550,6 +555,45 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       buffer.writeln('Company: ${contact.organizations.first.company}');
     }
     await Share.share(buffer.toString());
+  }
+
+  Future<void> _pickRingtone() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'],
+    );
+    if (!mounted || result == null || result.files.isEmpty) return;
+    final path = result.files.first.path;
+    if (path == null) return;
+    await _prefsService.setContactRingtone(contact.id, path);
+    // Apply to the Android system contact so the real incoming call also uses it.
+    await ContactRingtoneService.setSystemRingtone(
+      contactId: contact.id,
+      filePath: path,
+    );
+    if (!mounted) return;
+    setState(() => _customRingtone = path);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ringtone set: ${result.files.first.name}'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _clearRingtone() async {
+    await _prefsService.clearContactRingtone(contact.id);
+    // Remove the custom system ringtone so real incoming calls revert to default.
+    await ContactRingtoneService.clearSystemRingtone(contactId: contact.id);
+    if (!mounted) return;
+    setState(() => _customRingtone = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ringtone reset to default'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _toggleFavourite() async {
@@ -946,6 +990,12 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       theme: theme,
                     ),
 
+                  _buildRingtoneCard(
+                    context,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+
                   _buildCallRecordingsCard(
                     context,
                     colorScheme: colorScheme,
@@ -1123,6 +1173,126 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               ],
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRingtoneCard(
+    BuildContext context, {
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    final hasCustom = _customRingtone != null;
+    final fileName = hasCustom
+        ? _customRingtone!.split('/').last.split('\\').last
+        : 'Default ringtone';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        MyContactsColors.cFFFF9800.withValues(alpha: 0.15),
+                        MyContactsColors.cFFFF9800.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.music_note_rounded,
+                    size: 16,
+                    color: MyContactsColors.cFFFF9800,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Ringtone',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: MyContactsColors.cFFFF9800.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                hasCustom ? Icons.music_note_rounded : Icons.notifications_rounded,
+                color: MyContactsColors.cFFFF9800,
+                size: 20,
+              ),
+            ),
+            title: Text(
+              fileName,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              hasCustom
+                  ? 'Plays on fake calls & real incoming calls'
+                  : 'Pick a tone for fake calls and real incoming calls',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasCustom)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: colorScheme.error.withValues(alpha: 0.7),
+                    ),
+                    tooltip: 'Reset to default',
+                    onPressed: _clearRingtone,
+                  ),
+                IconButton(
+                  icon: Icon(
+                    Icons.folder_open_rounded,
+                    color: MyContactsColors.cFFFF9800,
+                  ),
+                  tooltip: 'Pick ringtone',
+                  onPressed: _pickRingtone,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -1,21 +1,31 @@
 package com.lijojolly.my_contacts
 
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.ContactsContract
+import android.provider.MediaStore
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.lijojolly.my_contacts/direct_call"
+    private val RINGTONE_CHANNEL = "com.lijojolly.my_contacts/ringtone"
     private val CALL_PHONE_PERMISSION_CODE = 100
     private var pendingNumber: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // ── Direct-call channel ──────────────────────────────────────────────
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "directCall") {
                 val number = call.argument<String>("number")
@@ -29,7 +39,137 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+
+        // ── Per-contact ringtone channel ─────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, RINGTONE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "setContactRingtone" -> {
+                    val contactId = call.argument<String>("contactId")
+                    val filePath  = call.argument<String>("filePath")
+                    if (contactId == null || filePath == null) {
+                        result.error("INVALID", "contactId or filePath is null", null)
+                    } else {
+                        try {
+                            val ringtoneUri = addFileToMediaStore(filePath)
+                            if (ringtoneUri != null) {
+                                applyRingtoneToContact(contactId, ringtoneUri)
+                                result.success(null)
+                            } else {
+                                result.error("FAILED", "Could not register file in MediaStore", null)
+                            }
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
+                }
+                "clearContactRingtone" -> {
+                    val contactId = call.argument<String>("contactId")
+                    if (contactId == null) {
+                        result.error("INVALID", "contactId is null", null)
+                    } else {
+                        try {
+                            applyRingtoneToContact(contactId, null)
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Inserts [filePath] into the Android MediaStore Audio collection as a
+     * ringtone and returns the resulting content URI string, or null on failure.
+     * Deduplicates: if the file is already in the MediaStore the existing URI
+     * is returned without re-inserting.
+     */
+    private fun addFileToMediaStore(filePath: String): String? {
+        val file = File(filePath)
+        if (!file.exists()) return null
+
+        val mimeType = when (file.extension.lowercase()) {
+            "mp3"  -> "audio/mpeg"
+            "wav"  -> "audio/wav"
+            "aac"  -> "audio/aac"
+            "m4a"  -> "audio/mp4"
+            "ogg"  -> "audio/ogg"
+            "flac" -> "audio/flac"
+            else   -> "audio/*"
+        }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Android 10+: copy file content into shared Ringtones/ folder
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DISPLAY_NAME, file.name)
+                put(MediaStore.Audio.Media.TITLE, file.nameWithoutExtension)
+                put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
+                put(MediaStore.Audio.Media.RELATIVE_PATH, "Ringtones/")
+                put(MediaStore.Audio.Media.IS_RINGTONE, 1)
+                put(MediaStore.Audio.Media.IS_NOTIFICATION, 0)
+                put(MediaStore.Audio.Media.IS_ALARM, 0)
+                put(MediaStore.Audio.Media.IS_MUSIC, 0)
+            }
+            val uri = contentResolver.insert(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values
+            ) ?: return null
+            contentResolver.openOutputStream(uri)?.use { os ->
+                FileInputStream(file).use { it.copyTo(os) }
+            }
+            uri.toString()
+        } else {
+            // Android 9 and below: use legacy DATA field
+            // Check for existing entry to avoid duplicates
+            val projection = arrayOf(MediaStore.Audio.Media._ID)
+            val selection  = "${MediaStore.Audio.Media.DATA} = ?"
+            contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                projection, selection, arrayOf(filePath), null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(
+                        cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    )
+                    return ContentUris.withAppendedId(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id
+                    ).toString()
+                }
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DATA, filePath)
+                put(MediaStore.Audio.Media.TITLE, file.nameWithoutExtension)
+                put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
+                put(MediaStore.Audio.Media.IS_RINGTONE, 1)
+                put(MediaStore.Audio.Media.IS_NOTIFICATION, 0)
+                put(MediaStore.Audio.Media.IS_ALARM, 0)
+                put(MediaStore.Audio.Media.IS_MUSIC, 0)
+            }
+            contentResolver.insert(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values
+            )?.toString()
+        }
+    }
+
+    /** Writes [ringtoneUri] (or null to restore default) into the contact record. */
+    private fun applyRingtoneToContact(contactId: String, ringtoneUri: String?) {
+        val id = contactId.toLongOrNull() ?: return
+        val contactUri = ContentUris.withAppendedId(
+            ContactsContract.Contacts.CONTENT_URI, id
+        )
+        val values = ContentValues()
+        if (ringtoneUri != null) {
+            values.put(ContactsContract.Contacts.CUSTOM_RINGTONE, ringtoneUri)
+        } else {
+            values.putNull(ContactsContract.Contacts.CUSTOM_RINGTONE)
+        }
+        contentResolver.update(contactUri, values, null, null)
+    }
+
+    // ── Direct call ──────────────────────────────────────────────────────────
 
     private fun makeDirectCall(number: String) {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CALL_PHONE)

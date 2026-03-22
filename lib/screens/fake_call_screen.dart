@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter/services.dart';
@@ -15,12 +16,14 @@ class FakeCallScreen extends StatefulWidget {
   final Contact contact;
   final String phoneNumber;
   final bool autoAttend;
+  final String? ringtonePath;
 
   const FakeCallScreen({
     super.key,
     required this.contact,
     required this.phoneNumber,
     required this.autoAttend,
+    this.ringtonePath,
   });
 
   @override
@@ -38,6 +41,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
   bool _isMuted = false;
   bool _isSpeaker = false;
   bool _isHeld = false;
+  AudioPlayer? _ringtonePlayer;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -81,10 +85,32 @@ class _FakeCallScreenState extends State<FakeCallScreen>
         }
       });
     }
+
+    _startRingtone();
+  }
+
+  Future<void> _startRingtone() async {
+    final path = widget.ringtonePath;
+    if (path == null) return;
+    final player = AudioPlayer();
+    _ringtonePlayer = player;
+    try {
+      await player.setReleaseMode(ReleaseMode.loop);
+      await player.play(DeviceFileSource(path));
+    } catch (_) {
+      // Silently ignore missing/unplayable file
+    }
+  }
+
+  void _stopRingtone() {
+    _ringtonePlayer?.stop();
+    _ringtonePlayer?.dispose();
+    _ringtonePlayer = null;
   }
 
   @override
   void dispose() {
+    _stopRingtone();
     _autoAnswerTimer?.cancel();
     _callTimer?.cancel();
     _pulseController.dispose();
@@ -95,6 +121,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
 
   void _answerCall() {
     HapticFeedback.mediumImpact();
+    _stopRingtone();
     setState(() => _callState = _CallState.connected);
     _pulseController.stop();
     _slideUpController.forward();
@@ -105,6 +132,7 @@ class _FakeCallScreenState extends State<FakeCallScreen>
 
   void _endCall() {
     HapticFeedback.heavyImpact();
+    _stopRingtone();
     _callTimer?.cancel();
     _autoAnswerTimer?.cancel();
     setState(() => _callState = _CallState.ended);
