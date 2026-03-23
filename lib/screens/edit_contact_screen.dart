@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:my_contacts/services/contact_insert_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
@@ -350,17 +351,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
     try {
       Contact saved;
       if (_isNew) {
-        if (Platform.isAndroid) {
-          final inserted = await FlutterContacts.openExternalInsert(_contact);
-          if (inserted == null) {
-            if (!mounted) return;
-            setState(() => _isSaving = false);
-            return;
-          }
-          saved = inserted;
-        } else {
-          saved = await FlutterContacts.insertContact(_contact);
-        }
+        saved = await ContactInsertService.insertContactSafely(_contact);
       } else {
         saved = await FlutterContacts.updateContact(_contact);
       }

@@ -10,6 +10,7 @@ import android.provider.ContactsContract
 import android.provider.MediaStore
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import co.quis.flutter_contacts.FlutterContacts
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -19,6 +20,7 @@ import java.io.FileInputStream
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.lijojolly.my_contacts/direct_call"
     private val RINGTONE_CHANNEL = "com.lijojolly.my_contacts/ringtone"
+    private val CONTACT_CHANNEL = "com.lijojolly.my_contacts/contact_ops"
     private val CALL_PHONE_PERMISSION_CODE = 100
     private var pendingNumber: String? = null
 
@@ -70,6 +72,41 @@ class MainActivity : FlutterActivity() {
                         try {
                             applyRingtoneToContact(contactId, null)
                             result.success(null)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── Contact insert channel ───────────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CONTACT_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "insertContactSafely" -> {
+                    val contactMap = call.argument<Map<String, Any?>>("contact")
+                    if (contactMap == null) {
+                        result.error("INVALID", "contact is null", null)
+                    } else {
+                        try {
+                            val prepared = contactMap.toMutableMap()
+                            chooseWritableContactAccount()?.let { account ->
+                                prepared["accounts"] = listOf(
+                                    mapOf(
+                                        "rawId" to "",
+                                        "type" to account.first,
+                                        "name" to account.second,
+                                        "mimetypes" to emptyList<String>(),
+                                    )
+                                )
+                            }
+                            val inserted = FlutterContacts.insert(contentResolver, prepared)
+                            if (inserted != null) {
+                                result.success(inserted)
+                            } else {
+                                result.error("FAILED", "Contact insertion returned null", null)
+                            }
                         } catch (e: Exception) {
                             result.error("ERROR", e.message, null)
                         }
@@ -167,6 +204,81 @@ class MainActivity : FlutterActivity() {
             values.putNull(ContactsContract.Contacts.CUSTOM_RINGTONE)
         }
         contentResolver.update(contactUri, values, null, null)
+    }
+
+    private fun chooseWritableContactAccount(): Pair<String, String>? {
+        val preferredSettings = contentResolver.query(
+            ContactsContract.Settings.CONTENT_URI,
+            arrayOf(
+                ContactsContract.Settings.ACCOUNT_TYPE,
+                ContactsContract.Settings.ACCOUNT_NAME,
+                ContactsContract.Settings.SHOULD_SYNC,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val accounts = mutableListOf<Triple<String, String, Int>>()
+            val typeIndex = cursor.getColumnIndex(ContactsContract.Settings.ACCOUNT_TYPE)
+            val nameIndex = cursor.getColumnIndex(ContactsContract.Settings.ACCOUNT_NAME)
+            val syncIndex = cursor.getColumnIndex(ContactsContract.Settings.SHOULD_SYNC)
+            while (cursor.moveToNext()) {
+                val type = if (typeIndex >= 0) cursor.getString(typeIndex) ?: "" else ""
+                val name = if (nameIndex >= 0) cursor.getString(nameIndex) ?: "" else ""
+                val shouldSync = if (syncIndex >= 0) cursor.getInt(syncIndex) else 0
+                if (type.isNotBlank() && name.isNotBlank()) {
+                    accounts.add(Triple(type, name, shouldSync))
+                }
+            }
+            accounts
+        } ?: emptyList()
+
+        preferredSettings.firstOrNull { (type, _, shouldSync) ->
+            shouldSync != 0 && isWritableContactAccount(type)
+        }?.let { return it.first to it.second }
+
+        val rawAccounts = contentResolver.query(
+            ContactsContract.RawContacts.CONTENT_URI,
+            arrayOf(
+                ContactsContract.RawContacts.ACCOUNT_TYPE,
+                ContactsContract.RawContacts.ACCOUNT_NAME,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val accounts = linkedSetOf<Pair<String, String>>()
+            val typeIndex = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
+            val nameIndex = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_NAME)
+            while (cursor.moveToNext()) {
+                val type = if (typeIndex >= 0) cursor.getString(typeIndex) ?: "" else ""
+                val name = if (nameIndex >= 0) cursor.getString(nameIndex) ?: "" else ""
+                if (type.isNotBlank() && name.isNotBlank()) {
+                    accounts.add(type to name)
+                }
+            }
+            accounts.toList()
+        } ?: emptyList()
+
+        return rawAccounts.firstOrNull { (type, _) -> isWritableContactAccount(type) }
+    }
+
+    private fun isWritableContactAccount(accountType: String): Boolean {
+        val type = accountType.lowercase()
+        if (type.isBlank()) return false
+        if (type.contains("sim") || type.contains("usim") || type.contains("local")) {
+            return false
+        }
+        return type == "com.google" ||
+            type.contains("exchange") ||
+            type.contains("office") ||
+            type.contains("outlook") ||
+            type.contains("samsung") ||
+            type.contains("huawei") ||
+            type.contains("xiaomi") ||
+            type.contains("miui") ||
+            type.contains("icloud") ||
+            type.contains("carddav")
     }
 
     // ── Direct call ──────────────────────────────────────────────────────────
