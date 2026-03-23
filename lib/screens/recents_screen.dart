@@ -25,6 +25,7 @@ class _RecentsScreenState extends State<RecentsScreen>
   List<_RecentEntry> _recentEntries = [];
   List<_FrequentEntry> _frequentEntries = [];
   bool _isLoading = true;
+  bool _isHeaderRefreshing = false;
   int _selectedTab = 0; // 0 = Recent, 1 = Frequent
 
   @override
@@ -92,6 +93,17 @@ class _RecentsScreenState extends State<RecentsScreen>
         _frequentEntries = frequentEntries;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _refreshFromHeader() async {
+    if (_isHeaderRefreshing) return;
+    setState(() => _isHeaderRefreshing = true);
+    try {
+      await _loadData();
+    } finally {
+      if (!mounted) return;
+      setState(() => _isHeaderRefreshing = false);
     }
   }
 
@@ -200,8 +212,20 @@ class _RecentsScreenState extends State<RecentsScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFF00C9FF),
+              onPressed: _isHeaderRefreshing ? null : _refreshFromHeader,
+              icon: _isHeaderRefreshing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: MyContactsColors.cFF00C9FF,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.refresh_rounded,
+                      color: MyContactsColors.cFF00C9FF,
+                    ),
               tooltip: 'Refresh',
             ),
           ),

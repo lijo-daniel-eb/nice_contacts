@@ -24,6 +24,7 @@ class FavouritesScreenState extends State<FavouritesScreen>
   final _repo = ContactsRepository();
   List<Contact> _favouriteContacts = [];
   bool _isLoading = true;
+  bool _isHeaderRefreshing = false;
 
   /// Call this from outside to refresh the favourites list.
   void refresh() => _loadFavourites();
@@ -83,6 +84,17 @@ class FavouritesScreenState extends State<FavouritesScreen>
         _favouriteContacts = favContacts;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _refreshFromHeader() async {
+    if (_isHeaderRefreshing) return;
+    setState(() => _isHeaderRefreshing = true);
+    try {
+      await _loadFavourites();
+    } finally {
+      if (!mounted) return;
+      setState(() => _isHeaderRefreshing = false);
     }
   }
 
@@ -174,8 +186,20 @@ class FavouritesScreenState extends State<FavouritesScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              onPressed: _loadFavourites,
-              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFFFFA62E),
+              onPressed: _isHeaderRefreshing ? null : _refreshFromHeader,
+              icon: _isHeaderRefreshing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: MyContactsColors.cFFFFA62E,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.refresh_rounded,
+                      color: MyContactsColors.cFFFFA62E,
+                    ),
               tooltip: 'Refresh',
             ),
           ),

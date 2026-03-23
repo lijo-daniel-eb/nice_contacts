@@ -31,6 +31,7 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   CleanupReport? _cleanupReport;
 
   bool _isLoading = true;
+  bool _isHeaderRefreshing = false;
   bool _isMergingDuplicates = false;
 
   @override
@@ -46,10 +47,14 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     try {
       await _prefsService.init();
-      await _repo.ensureLoaded();
+      if (forceRefresh) {
+        await _repo.refresh();
+      } else {
+        await _repo.ensureLoaded();
+      }
       final contacts = _repo.contacts;
       final analysis = _runAnalysis(contacts);
 
@@ -75,6 +80,22 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to load insights: $e')));
+    }
+  }
+
+  Future<void> _refreshFromHeader() async {
+    if (_isHeaderRefreshing) return;
+    setState(() => _isHeaderRefreshing = true);
+    final stopwatch = Stopwatch()..start();
+    try {
+      await _loadData(forceRefresh: true);
+    } finally {
+      final remainingMs = 450 - stopwatch.elapsedMilliseconds;
+      if (remainingMs > 0) {
+        await Future.delayed(Duration(milliseconds: remainingMs));
+      }
+      if (!mounted) return;
+      setState(() => _isHeaderRefreshing = false);
     }
   }
 
@@ -225,11 +246,20 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              onPressed: () {
-                setState(() => _isLoading = true);
-                _loadData();
-              },
-              icon: const Icon(Icons.refresh_rounded, color: MyContactsColors.cFF4ECDC4),
+              onPressed: _refreshFromHeader,
+              icon: _isHeaderRefreshing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: MyContactsColors.cFF4ECDC4,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.refresh_rounded,
+                      color: MyContactsColors.cFF4ECDC4,
+                    ),
             ),
           ),
         ],
@@ -242,22 +272,24 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildSuggestionsTab(ThemeData theme, ColorScheme colorScheme) {
-    if (_suggestions.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.auto_awesome_rounded,
-        title: 'No suggestions yet',
-        subtitle:
-            'Start using the app to get personalized suggestions.\nCall, message, and favourite contacts to see recommendations.',
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _suggestions.length,
-      itemBuilder: (context, index) {
-        final suggestion = _suggestions[index];
-        return _buildSuggestionCard(suggestion, theme, colorScheme);
-      },
+    return _buildSubtabSection(
+      label: 'Suggestions',
+      colorScheme: colorScheme,
+      child: _suggestions.isEmpty
+          ? _buildEmptyState(
+              icon: Icons.auto_awesome_rounded,
+              title: 'No suggestions yet',
+              subtitle:
+                  'Start using the app to get personalized suggestions.\nCall, message, and favourite contacts to see recommendations.',
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _suggestions.length,
+              itemBuilder: (context, index) {
+                final suggestion = _suggestions[index];
+                return _buildSuggestionCard(suggestion, theme, colorScheme);
+              },
+            ),
     );
   }
 
@@ -366,80 +398,83 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildDuplicatesTab(ThemeData theme, ColorScheme colorScheme) {
-    if (_duplicates.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.check_circle_outline_rounded,
-        title: 'No duplicates found',
-        subtitle: 'Your contacts are clean! No potential duplicates detected.',
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _duplicates.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              elevation: 0,
-              color: MyContactsColors.cFFFF6B35.withValues(alpha: 0.1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: MyContactsColors.cFFFF6B35,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+    return _buildSubtabSection(
+      label: 'Duplicates',
+      colorScheme: colorScheme,
+      child: _duplicates.isEmpty
+          ? _buildEmptyState(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'No duplicates found',
+              subtitle:
+                  'Your contacts are clean! No potential duplicates detected.',
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _duplicates.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Card(
+                      elevation: 0,
+                      color: MyContactsColors.cFFFF6B35.withValues(alpha: 0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
                               color: MyContactsColors.cFFFF6B35,
+                              size: 28,
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
-                              onPressed: _isMergingDuplicates
-                                  ? null
-                                  : _mergeAllDuplicatesBySameNumber,
-                              icon: _isMergingDuplicates
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.merge_type_rounded),
-                              label: const Text('Merge All'),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Found ${_duplicates.length} potential duplicate group${_duplicates.length > 1 ? 's' : ''}',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: MyContactsColors.cFFFF6B35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FilledButton.icon(
+                                      onPressed: _isMergingDuplicates
+                                          ? null
+                                          : _mergeAllDuplicatesBySameNumber,
+                                      icon: _isMergingDuplicates
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.merge_type_rounded),
+                                      label: const Text('Merge All'),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
+                  );
+                }
 
-        final group = _duplicates[index - 1];
-        return _buildDuplicateCard(group, index, theme, colorScheme);
-      },
+                final group = _duplicates[index - 1];
+                return _buildDuplicateCard(group, index, theme, colorScheme);
+              },
+            ),
     );
   }
 
@@ -825,27 +860,30 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   Widget _buildGroupsTab(ThemeData theme, ColorScheme colorScheme) {
     final groups = _buildCombinedGroups();
 
-    if (groups.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.category_rounded,
-        title: 'No groups found',
-        subtitle: 'Add groups or organization tags in Edit Contact to see tiles here.',
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: groups.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1,
-      ),
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _buildGroupTile(group, theme, colorScheme);
-      },
+    return _buildSubtabSection(
+      label: 'Groups',
+      colorScheme: colorScheme,
+      child: groups.isEmpty
+          ? _buildEmptyState(
+              icon: Icons.category_rounded,
+              title: 'No groups found',
+              subtitle:
+                  'Add groups or organization tags in Edit Contact to see tiles here.',
+            )
+          : GridView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: groups.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                return _buildGroupTile(group, theme, colorScheme);
+              },
+            ),
     );
   }
 
@@ -1095,49 +1133,42 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildInsightsTab(ThemeData theme, ColorScheme colorScheme) {
-    if (_insights == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final ins = _insights!;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Completeness gauge
-        _buildCompletenessCard(ins, theme, colorScheme),
-        const SizedBox(height: 16),
-
-        // Stats grid
-        _buildStatsGrid(ins, theme, colorScheme),
-        const SizedBox(height: 16),
-
-        // Company distribution
-        if (ins.companyDistribution.isNotEmpty)
-          _buildDistributionCard(
-            title: 'Top Companies',
-            icon: Icons.business_rounded,
-            distribution: ins.companyDistribution,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
-        if (ins.companyDistribution.isNotEmpty) const SizedBox(height: 16),
-
-        // Domain distribution
-        if (ins.domainDistribution.isNotEmpty)
-          _buildDistributionCard(
-            title: 'Email Domains',
-            icon: Icons.email_rounded,
-            distribution: ins.domainDistribution,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
-        if (ins.domainDistribution.isNotEmpty) const SizedBox(height: 16),
-
-        // Incomplete contacts
-        if (ins.incompleteContacts.isNotEmpty)
-          _buildIncompleteCard(ins, theme, colorScheme),
-      ],
+    return _buildSubtabSection(
+      label: 'Insights',
+      colorScheme: colorScheme,
+      child: _insights == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildCompletenessCard(_insights!, theme, colorScheme),
+                const SizedBox(height: 16),
+                _buildStatsGrid(_insights!, theme, colorScheme),
+                const SizedBox(height: 16),
+                if (_insights!.companyDistribution.isNotEmpty)
+                  _buildDistributionCard(
+                    title: 'Top Companies',
+                    icon: Icons.business_rounded,
+                    distribution: _insights!.companyDistribution,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                  ),
+                if (_insights!.companyDistribution.isNotEmpty)
+                  const SizedBox(height: 16),
+                if (_insights!.domainDistribution.isNotEmpty)
+                  _buildDistributionCard(
+                    title: 'Email Domains',
+                    icon: Icons.email_rounded,
+                    distribution: _insights!.domainDistribution,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                  ),
+                if (_insights!.domainDistribution.isNotEmpty)
+                  const SizedBox(height: 16),
+                if (_insights!.incompleteContacts.isNotEmpty)
+                  _buildIncompleteCard(_insights!, theme, colorScheme),
+              ],
+            ),
     );
   }
 
@@ -1527,37 +1558,85 @@ class _SmartInsightsScreenState extends State<SmartInsightsScreen>
     );
   }
 
+  Widget _buildSubtabSection({
+    required String label,
+    required ColorScheme colorScheme,
+    required Widget child,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _refreshFromHeader,
+                icon: _isHeaderRefreshing
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        Icons.refresh_rounded,
+                        size: 18,
+                        color: colorScheme.primary,
+                      ),
+                label: Text(_isHeaderRefreshing ? 'Refreshing' : 'Refresh'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: child),
+      ],
+    );
+  }
+
   // ─────────────────────────────────────────────
   //  CLEANUP TAB
   // ─────────────────────────────────────────────
 
   Widget _buildCleanupTab(ThemeData theme, ColorScheme colorScheme) {
     final report = _cleanupReport;
-    if (report == null) {
-      return _buildEmptyState(
-        title: 'No Data',
-        subtitle: 'Unable to analyse contacts',
-        icon: Icons.error_outline_rounded,
-      );
-    }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Health score card
-        _buildHealthScoreCard(report, theme, colorScheme),
-        const SizedBox(height: 16),
-        if (report.suggestions.isEmpty)
-          _buildEmptyState(
-            title: 'All Clean!',
-            subtitle: 'Your contacts are in great shape',
-            icon: Icons.check_circle_outline_rounded,
-          )
-        else
-          ...report.suggestions.map(
-            (s) => _buildCleanupSuggestionCard(s, theme, colorScheme),
-          ),
-      ],
+    return _buildSubtabSection(
+      label: 'Cleanup',
+      colorScheme: colorScheme,
+      child: report == null
+          ? _buildEmptyState(
+              title: 'No Data',
+              subtitle: 'Unable to analyse contacts',
+              icon: Icons.error_outline_rounded,
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildHealthScoreCard(report, theme, colorScheme),
+                const SizedBox(height: 16),
+                if (report.suggestions.isEmpty)
+                  _buildEmptyState(
+                    title: 'All Clean!',
+                    subtitle: 'Your contacts are in great shape',
+                    icon: Icons.check_circle_outline_rounded,
+                  )
+                else
+                  ...report.suggestions.map(
+                    (s) => _buildCleanupSuggestionCard(s, theme, colorScheme),
+                  ),
+              ],
+            ),
     );
   }
 

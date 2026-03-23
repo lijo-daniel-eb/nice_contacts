@@ -35,6 +35,7 @@ class ContactsScreenState extends State<ContactsScreen>
   final _prefsService = PreferencesService();
   final _repo = ContactsRepository();
   bool _isSearching = false;
+  bool _isHeaderRefreshing = false;
   late AnimationController _animController;
   Timer? _debounce;
 
@@ -89,6 +90,17 @@ class ContactsScreenState extends State<ContactsScreen>
 
   Future<void> _fetchContacts() async {
     await _repo.refresh();
+  }
+
+  Future<void> _refreshFromHeader() async {
+    if (_isHeaderRefreshing) return;
+    setState(() => _isHeaderRefreshing = true);
+    try {
+      await _fetchContacts();
+    } finally {
+      if (!mounted) return;
+      setState(() => _isHeaderRefreshing = false);
+    }
   }
 
   Future<void> _addContact() async {
@@ -284,10 +296,17 @@ class ContactsScreenState extends State<ContactsScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              onPressed: () {
-                _fetchContacts();
-              },
-              icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
+              onPressed: _isHeaderRefreshing ? null : _refreshFromHeader,
+              icon: _isHeaderRefreshing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    )
+                  : Icon(Icons.refresh_rounded, color: colorScheme.primary),
               tooltip: 'Refresh',
             ),
           ),

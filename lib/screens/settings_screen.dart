@@ -22,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   int _totalContacts = 0;
   int _withPhone = 0;
   int _withEmail = 0;
+  bool _isHeaderRefreshing = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -58,6 +59,18 @@ class _SettingsScreenState extends State<SettingsScreen>
         _withPhone = contacts.where((c) => c.phones.isNotEmpty).length;
         _withEmail = contacts.where((c) => c.emails.isNotEmpty).length;
       });
+    }
+  }
+
+  Future<void> _refreshFromHeader() async {
+    if (_isHeaderRefreshing) return;
+    setState(() => _isHeaderRefreshing = true);
+    try {
+      await _repo.refresh();
+      await _loadStats();
+    } finally {
+      if (!mounted) return;
+      setState(() => _isHeaderRefreshing = false);
     }
   }
 
@@ -166,6 +179,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ),
             ],
+          ),
+          const Spacer(),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _isHeaderRefreshing ? null : _refreshFromHeader,
+              icon: _isHeaderRefreshing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    )
+                  : Icon(
+                      Icons.refresh_rounded,
+                      color: colorScheme.primary,
+                    ),
+              tooltip: 'Refresh',
+            ),
           ),
         ],
       ),
