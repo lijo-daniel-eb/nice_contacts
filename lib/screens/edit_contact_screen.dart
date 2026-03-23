@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -66,15 +67,24 @@ class _EditContactScreenState extends State<EditContactScreen> {
 
   Future<void> _loadContact() async {
     await _prefsService.init();
+    if (!mounted) return;
 
     if (_isNew) {
       _contact = Contact();
       _contact.propertiesFetched = true;
       _contact.photoFetched = true;
+      final insertAccount = await _resolvePreferredInsertAccount();
+      if (insertAccount != null) {
+        // Some devices reject null/local insert accounts when cloud sync is
+        // the default. Explicitly selecting a synced account avoids crashes.
+        _contact.accounts = [insertAccount];
+      }
+      if (!mounted) return;
       _phones.add(_PhoneEntry());
       _emails.add(_EmailEntry());
       _availableGroups = _prefsService.getAvailableContactGroups();
       _availableOrganizationTags = await _buildOrganizationTagCatalog();
+      if (!mounted) return;
       setState(() => _isLoading = false);
       return;
     }
@@ -116,7 +126,43 @@ class _EditContactScreenState extends State<EditContactScreen> {
       include: _selectedOrganizationTags,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  Future<Account?> _resolvePreferredInsertAccount() async {
+    final contacts = await FlutterContacts.getContacts(
+      withAccounts: true,
+      sorted: false,
+    );
+
+    final candidates = <Account>[];
+    for (final c in contacts) {
+      for (final account in c.accounts) {
+        final type = account.type.trim();
+        final name = account.name.trim();
+        if (type.isEmpty || name.isEmpty) continue;
+        candidates.add(account);
+      }
+    }
+
+    if (candidates.isEmpty) return null;
+
+    bool isLikelyLocalOrSim(Account account) {
+      final type = account.type.toLowerCase();
+      final name = account.name.toLowerCase();
+      return type.contains('local') ||
+          type.contains('sim') ||
+          name.contains('local') ||
+          name.contains('sim');
+    }
+
+    final preferred = candidates.firstWhere(
+      (a) => !isLikelyLocalOrSim(a),
+      orElse: () => candidates.first,
+    );
+
+    return Account('', preferred.type, preferred.name, const <String>[]);
   }
 
   Future<List<String>> _buildOrganizationTagCatalog({
@@ -289,6 +335,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
 
     if (_firstNameCtrl.text.trim().isEmpty &&
         _lastNameCtrl.text.trim().isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter at least a first or last name'),
@@ -303,34 +350,55 @@ class _EditContactScreenState extends State<EditContactScreen> {
     try {
       Contact saved;
       if (_isNew) {
-        saved = await FlutterContacts.insertContact(_contact);
+        if (Platform.isAndroid) {
+          final inserted = await FlutterContacts.openExternalInsert(_contact);
+          if (inserted == null) {
+            if (!mounted) return;
+            setState(() => _isSaving = false);
+            return;
+          }
+          saved = inserted;
+        } else {
+          saved = await FlutterContacts.insertContact(_contact);
+        }
       } else {
         saved = await FlutterContacts.updateContact(_contact);
       }
 
+      // Check mounted after first async operation
+      if (!mounted) return;
+
       // Persist app-level group assignment for this contact.
       await _prefsService.setContactGroups(saved.id, _selectedGroups.toList());
+
+      // Check mounted again
+      if (!mounted) return;
 
       // Refresh the shared repository so all screens see changes
       await ContactsRepository().refresh();
 
-      if (mounted) {
-        // Fetch the full updated contact to return
-        final updated = await FlutterContacts.getContact(
-          saved.id,
-          withProperties: true,
-          withThumbnail: true,
-          withPhoto: false,
-        );
-        Navigator.pop(context, updated);
-      }
+      if (!mounted) return;
+      // Capture Navigator before the next async gap so the context
+      // reference stays valid even if something queues a rebuild.
+      final nav = Navigator.of(context);
+      final updated = await FlutterContacts.getContact(
+        saved.id,
+        withProperties: true,
+        withThumbnail: true,
+        withPhoto: false,
+      );
+      nav.pop(updated);
     } catch (e) {
+      // Guard setState — widget may have been disposed if the user
+      // dismissed the screen while the platform call was in-flight.
+      if (!mounted) return;
       setState(() => _isSaving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
-      }
+      
+      // Ensure context is still valid before showing snackbar
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
     }
   }
 
@@ -362,18 +430,25 @@ class _EditContactScreenState extends State<EditContactScreen> {
     setState(() => _isSaving = true);
     try {
       await FlutterContacts.deleteContact(_contact);
+      
+      // Check mounted after first async operation
+      if (!mounted) return;
+      
       await ContactsRepository().refresh();
-      if (mounted) {
-        // Pop edit screen AND detail screen
-        Navigator.pop(context, 'deleted');
-      }
+      
+      // Check mounted and capture Navigator before the pop
+      if (!mounted) return;
+      Navigator.pop(context, 'deleted');
     } catch (e) {
+      // Guard setState — widget may have been disposed
+      if (!mounted) return;
       setState(() => _isSaving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
-      }
+      
+      // Double-check mounted before showing snackbar
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
     }
   }
 
@@ -408,7 +483,9 @@ class _EditContactScreenState extends State<EditContactScreen> {
         title: Text(_isNew ? 'New Contact' : 'Edit Contact'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => _confirmDiscard(),
+          // Disable close while a save is in-flight to prevent a
+          // dispose-during-save race that causes setState-after-dispose.
+          onPressed: _isSaving ? null : _confirmDiscard,
         ),
         actions: [
           if (!_isLoading)
