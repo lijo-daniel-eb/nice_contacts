@@ -10,6 +10,7 @@ import 'package:my_contacts/services/call_log_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RecentsScreen extends StatefulWidget {
   const RecentsScreen({super.key});
@@ -522,6 +523,55 @@ class _RecentsScreenState extends State<RecentsScreen>
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
+    final number = entry.number;
+    final canCall = number.isNotEmpty;
+
+    Widget tile = _buildCallTileContent(entry, theme, colorScheme);
+
+    if (canCall) {
+      tile = Dismissible(
+        key: ValueKey('call_${entry.number}_${entry.timestamp.millisecondsSinceEpoch}'),
+        direction: DismissDirection.startToEnd,
+        confirmDismiss: (_) async {
+          _makeCall(number);
+          return false; // keep the tile in the list
+        },
+        background: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            color: MyContactsColors.cFF4CAF50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 24),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.call_rounded, color: MyContactsColors.white, size: 26),
+              SizedBox(width: 10),
+              Text(
+                'Call',
+                style: TextStyle(
+                  color: MyContactsColors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+        child: tile,
+      );
+    }
+
+    return tile;
+  }
+
+  Widget _buildCallTileContent(
+    _CallEntry entry,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final (icon, color) = switch (entry.callType) {
       CallType.incoming ||
       CallType.wifiIncoming =>
@@ -758,6 +808,11 @@ class _RecentsScreenState extends State<RecentsScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _makeCall(String number) async {
+    final uri = Uri(scheme: 'tel', path: number);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   String _formatTimestamp(DateTime timestamp) {
