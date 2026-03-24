@@ -618,7 +618,9 @@ class _EditContactScreenState extends State<EditContactScreen> {
   void _removeProfilePhoto() {
     setState(() {
       _contact.photo = null;
+      _contact.thumbnail = null;
       _contact.photoFetched = true;
+      _contact.thumbnailFetched = true;
     });
   }
 
