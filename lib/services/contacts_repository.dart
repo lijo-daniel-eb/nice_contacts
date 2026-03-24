@@ -63,6 +63,8 @@ class ContactsRepository extends ChangeNotifier {
       _lastRefresh = DateTime.now();
       _thumbnailCache.clear();
       _thumbnailLoading.clear();
+      _photoCache.clear();
+      _photoLoading.clear();
       notifyListeners();
 
       // Prefetch visible thumbnails in small batches (first ~30 contacts)
@@ -107,6 +109,16 @@ class ContactsRepository extends ChangeNotifier {
 
   /// Whether a high-res photo has been loaded (or attempted) for the given contact.
   bool hasHighResPhoto(String contactId) => _photoCache.containsKey(contactId);
+
+  /// Evict photo and thumbnail cache for a single contact.
+  /// Call this after updating a contact's photo to force a fresh reload.
+  void evictContactPhotoCache(String contactId) {
+    _photoCache.remove(contactId);
+    _photoLoading.remove(contactId);
+    _thumbnailCache.remove(contactId);
+    _thumbnailLoading.remove(contactId);
+    notifyListeners();
+  }
 
   /// Whether a thumbnail has been loaded (or attempted) for the given contact.
   bool hasThumbnail(String contactId) => _thumbnailCache.containsKey(contactId);

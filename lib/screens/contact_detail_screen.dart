@@ -100,6 +100,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       setState(() {
         _currentContact = result;
       });
+      // Evict stale cached photos so the detail screen fetches fresh data
+      _repo.evictContactPhotoCache(result.id);
+      // Re-register listener (it may have unsubscribed once high-res was loaded)
+      _repo.removeListener(_onRepoUpdated);
+      _repo.addListener(_onRepoUpdated);
+      // Kick off a fresh high-res photo load
+      _repo.getHighResPhoto(result.id);
       _loadContactGroups();
       _loadCallRecordings();
     }
