@@ -6,10 +6,10 @@ import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
+import 'package:my_contacts/services/call_log_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class RecentsScreen extends StatefulWidget {
   const RecentsScreen({super.key});
@@ -20,12 +20,14 @@ class RecentsScreen extends StatefulWidget {
 
 class _RecentsScreenState extends State<RecentsScreen>
     with AutomaticKeepAliveClientMixin {
-  final _prefsService = PreferencesService();
   final _repo = ContactsRepository();
-  List<_RecentEntry> _recentEntries = [];
+  final _callLogService = CallLogService();
+  List<_CallEntry> _callEntries = [];
   List<_FrequentEntry> _frequentEntries = [];
   bool _isLoading = true;
   bool _isHeaderRefreshing = false;
+  bool _permissionGranted = false;
+  bool _permissionPermanentlyDenied = false;
   int _selectedTab = 0; // 0 = Recent, 1 = Frequent
 
   @override
@@ -55,43 +57,85 @@ class _RecentsScreenState extends State<RecentsScreen>
   }
 
   Future<void> _loadData() async {
+    // Check call log permission first
+    final status = await _callLogService.permissionStatus;
+    if (!status.isGranted) {
+      if (mounted) {
+        setState(() {
+          _callEntries = [];
+          _frequentEntries = [];
+          _isLoading = false;
+          _permissionGranted = false;
+          _permissionPermanentlyDenied = status.isPermanentlyDenied;
+        });
+      }
+      return;
+    }
+
     await _repo.ensureLoaded();
     final allContacts = _repo.contacts;
-    final contactMap = {for (final c in allContacts) c.id: c};
 
-    // Load recents
-    final recents = _prefsService.getRecents();
-    final recentEntries = <_RecentEntry>[];
-    for (final r in recents) {
-      final contact = contactMap[r.contactId];
-      if (contact != null) {
-        recentEntries.add(_RecentEntry(contact: contact, recent: r));
+    // Build phone-number → contact lookup (last-10-digits key for matching)
+    final phoneMap = <String, Contact>{};
+    for (final c in allContacts) {
+      for (final phone in c.phones) {
+        final raw = phone.normalizedNumber.isNotEmpty
+            ? phone.normalizedNumber
+            : phone.number;
+        final key = CallLogService.normalizeNumber(raw);
+        if (key.isNotEmpty) phoneMap[key] = c;
       }
     }
 
-    // Load frequent calls only (exclude message/email/whatsapp actions).
-    final frequencyMap = <String, int>{};
-    for (final r in recents) {
-      if (r.action != 'call') continue;
-      frequencyMap[r.contactId] = (frequencyMap[r.contactId] ?? 0) + 1;
+    final logEntries = await _callLogService.getEntries(limit: 200);
+
+    // --- Recent tab: flat list of call log entries ---
+    final callEntries = <_CallEntry>[];
+    for (final e in logEntries.take(100)) {
+      final key = CallLogService.normalizeNumber(e.number);
+      final contact = key.isNotEmpty ? phoneMap[key] : null;
+      callEntries.add(_CallEntry(
+        contact: contact,
+        number: e.number ?? '',
+        displayName:
+            contact?.displayName ?? e.name ?? e.number ?? 'Unknown',
+        callType: e.callType ?? CallType.missed,
+        timestamp:
+            DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0),
+        durationSeconds: e.duration ?? 0,
+      ));
     }
-    final frequentEntries = <_FrequentEntry>[];
-    final sortedFrequency = frequencyMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    for (final entry in sortedFrequency.take(20)) {
-      final contact = contactMap[entry.key];
-      if (contact != null) {
-        frequentEntries.add(
-          _FrequentEntry(contact: contact, count: entry.value),
+
+    // --- Frequent tab: aggregate answered calls per number ---
+    final freqMap = <String, _FrequentEntry>{};
+    for (final e in logEntries) {
+      final type = e.callType;
+      if (type != CallType.incoming && type != CallType.outgoing) continue;
+      final key = CallLogService.normalizeNumber(e.number);
+      final mapKey = key.isNotEmpty ? key : (e.number ?? '?');
+      if (!freqMap.containsKey(mapKey)) {
+        final contact = key.isNotEmpty ? phoneMap[key] : null;
+        freqMap[mapKey] = _FrequentEntry(
+          contact: contact,
+          number: e.number ?? '',
+          displayName:
+              contact?.displayName ?? e.name ?? e.number ?? 'Unknown',
+          count: 0,
         );
       }
+      freqMap[mapKey] = freqMap[mapKey]!.copyWith(
+        count: freqMap[mapKey]!.count + 1,
+      );
     }
+    final frequentEntries = freqMap.values.toList()
+      ..sort((a, b) => b.count.compareTo(a.count));
 
     if (mounted) {
       setState(() {
-        _recentEntries = recentEntries;
-        _frequentEntries = frequentEntries;
+        _callEntries = callEntries;
+        _frequentEntries = frequentEntries.take(20).toList();
         _isLoading = false;
+        _permissionGranted = true;
       });
     }
   }
@@ -102,8 +146,7 @@ class _RecentsScreenState extends State<RecentsScreen>
     try {
       await _loadData();
     } finally {
-      if (!mounted) return;
-      setState(() => _isHeaderRefreshing = false);
+      if (mounted) setState(() => _isHeaderRefreshing = false);
     }
   }
 
@@ -190,21 +233,6 @@ class _RecentsScreenState extends State<RecentsScreen>
             ],
           ),
           const Spacer(),
-          if (_recentEntries.isNotEmpty)
-            Container(
-              decoration: BoxDecoration(
-                color: colorScheme.error.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: IconButton(
-                onPressed: () => _showClearDialog(colorScheme),
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  color: colorScheme.error.withValues(alpha: 0.7),
-                ),
-                tooltip: 'Clear history',
-              ),
-            ),
           const SizedBox(width: 4),
           Container(
             decoration: BoxDecoration(
@@ -308,13 +336,16 @@ class _RecentsScreenState extends State<RecentsScreen>
   }
 
   Widget _buildRecentList(ThemeData theme, ColorScheme colorScheme) {
-    if (_recentEntries.isEmpty) {
+    if (!_permissionGranted) {
+      return _buildPermissionState(theme, colorScheme);
+    }
+    if (_callEntries.isEmpty) {
       return _buildEmptyState(
         theme,
         colorScheme,
         icon: Icons.history_rounded,
-        title: 'No Recent Activity',
-        subtitle: 'Call or message contacts to see\nyour history here.',
+        title: 'No Recent Calls',
+        subtitle: 'Your call history will appear here.',
       );
     }
 
@@ -325,23 +356,25 @@ class _RecentsScreenState extends State<RecentsScreen>
           parent: AlwaysScrollableScrollPhysics(),
         ),
         padding: const EdgeInsets.only(bottom: 20),
-        itemCount: _recentEntries.length,
+        itemCount: _callEntries.length,
         itemBuilder: (context, index) {
-          final entry = _recentEntries[index];
-          return _buildRecentTile(entry, theme, colorScheme);
+          return _buildCallTile(_callEntries[index], theme, colorScheme);
         },
       ),
     );
   }
 
   Widget _buildFrequentList(ThemeData theme, ColorScheme colorScheme) {
+    if (!_permissionGranted) {
+      return _buildPermissionState(theme, colorScheme);
+    }
     if (_frequentEntries.isEmpty) {
       return _buildEmptyState(
         theme,
         colorScheme,
         icon: Icons.trending_up_rounded,
         title: 'No Frequent Contacts',
-        subtitle: 'Contacts you reach out to often\nwill appear here.',
+        subtitle: 'Contacts you call often\nwill appear here.',
       );
     }
 
@@ -354,8 +387,8 @@ class _RecentsScreenState extends State<RecentsScreen>
         padding: const EdgeInsets.only(bottom: 20, top: 4),
         itemCount: _frequentEntries.length,
         itemBuilder: (context, index) {
-          final entry = _frequentEntries[index];
-          return _buildFrequentTile(entry, index, theme, colorScheme);
+          return _buildFrequentTile(
+              _frequentEntries[index], index, theme, colorScheme);
         },
       ),
     );
@@ -412,25 +445,104 @@ class _RecentsScreenState extends State<RecentsScreen>
     );
   }
 
-  Widget _buildRecentTile(
-    _RecentEntry entry,
+  /// Permission request / denied screen.
+  Widget _buildPermissionState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.15),
+                    colorScheme.primaryContainer.withValues(alpha: 0.06),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.phone_locked_rounded,
+                size: 56,
+                color: colorScheme.primary.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Phone Permission Needed',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Grant access to your call history\nto load Recent and Frequently Called data.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              onPressed: () async {
+                bool granted;
+                if (_permissionPermanentlyDenied) {
+                  await openAppSettings();
+                  granted =
+                      (await _callLogService.permissionStatus).isGranted;
+                } else {
+                  granted = await _callLogService.requestPermission();
+                }
+                if (granted && mounted) {
+                  setState(() {
+                    _isLoading = true;
+                    _permissionGranted = true;
+                  });
+                  _loadData();
+                }
+              },
+              icon: Icon(_permissionPermanentlyDenied
+                  ? Icons.settings_rounded
+                  : Icons.lock_open_rounded),
+              label: Text(_permissionPermanentlyDenied
+                  ? 'Open Settings'
+                  : 'Grant Permission'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCallTile(
+    _CallEntry entry,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    final actionIcon = switch (entry.recent.action) {
-      'call' => Icons.call_rounded,
-      'message' => Icons.message_rounded,
-      'email' => Icons.email_rounded,
-      'whatsapp' => FontAwesomeIcons.whatsapp,
-      _ => Icons.touch_app_rounded,
+    final (icon, color) = switch (entry.callType) {
+      CallType.incoming ||
+      CallType.wifiIncoming =>
+        (Icons.call_received_rounded, MyContactsColors.cFF4CAF50),
+      CallType.outgoing ||
+      CallType.wifiOutgoing =>
+        (Icons.call_made_rounded, MyContactsColors.cFF2196F3),
+      CallType.missed =>
+        (Icons.call_missed_rounded, colorScheme.error),
+      CallType.rejected ||
+      CallType.blocked =>
+        (Icons.call_missed_outgoing_rounded, MyContactsColors.cFFFF9800),
+      _ => (Icons.phone_rounded, colorScheme.onSurface.withValues(alpha: 0.4)),
     };
-    final actionColor = switch (entry.recent.action) {
-      'call' => MyContactsColors.cFF4CAF50,
-      'message' => MyContactsColors.cFF2196F3,
-      'email' => MyContactsColors.cFFFF9800,
-      'whatsapp' => MyContactsColors.cFF25D366,
-      _ => colorScheme.primary,
-    };
+
+    final isMissedOrRejected = entry.callType == CallType.missed ||
+        entry.callType == CallType.rejected ||
+        entry.callType == CallType.blocked;
+    final subtitle = isMissedOrRejected
+        ? _formatTimestamp(entry.timestamp)
+        : '${_formatDuration(entry.durationSeconds)} · ${_formatTimestamp(entry.timestamp)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -441,37 +553,42 @@ class _RecentsScreenState extends State<RecentsScreen>
         shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ContactDetailScreen(contact: entry.contact),
-              ),
-            );
-            _loadData();
-          },
+          onTap: entry.contact != null
+              ? () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ContactDetailScreen(contact: entry.contact!),
+                    ),
+                  );
+                  _loadData();
+                }
+              : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
-                ContactAvatar(contact: entry.contact, radius: 24),
+                _buildEntryAvatar(entry.contact, entry.displayName, colorScheme),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entry.contact.displayName,
+                        entry.displayName,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
+                          color: isMissedOrRejected
+                              ? color
+                              : colorScheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatTimestamp(entry.recent.timestamp),
+                        subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
@@ -484,13 +601,13 @@ class _RecentsScreenState extends State<RecentsScreen>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        actionColor.withValues(alpha: 0.18),
-                        actionColor.withValues(alpha: 0.06),
+                        color.withValues(alpha: 0.18),
+                        color.withValues(alpha: 0.06),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(actionIcon, color: actionColor, size: 18),
+                  child: Icon(icon, color: color, size: 18),
                 ),
               ],
             ),
@@ -515,15 +632,18 @@ class _RecentsScreenState extends State<RecentsScreen>
         shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ContactDetailScreen(contact: entry.contact),
-              ),
-            );
-            _loadData();
-          },
+          onTap: entry.contact != null
+              ? () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ContactDetailScreen(contact: entry.contact!),
+                    ),
+                  );
+                  _loadData();
+                }
+              : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
@@ -537,7 +657,10 @@ class _RecentsScreenState extends State<RecentsScreen>
                         ? const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [MyContactsColors.cFFFFA62E, MyContactsColors.cFFFF6B35],
+                            colors: [
+                              MyContactsColors.cFFFFA62E,
+                              MyContactsColors.cFFFF6B35,
+                            ],
                           )
                         : null,
                     color: index < 3
@@ -559,14 +682,15 @@ class _RecentsScreenState extends State<RecentsScreen>
                   ),
                 ),
                 const SizedBox(width: 10),
-                ContactAvatar(contact: entry.contact, radius: 24),
+                _buildEntryAvatar(
+                    entry.contact, entry.displayName, colorScheme),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entry.contact.displayName,
+                        entry.displayName,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.onSurface,
@@ -576,7 +700,7 @@ class _RecentsScreenState extends State<RecentsScreen>
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${entry.count} interaction${entry.count > 1 ? 's' : ''}',
+                        '${entry.count} call${entry.count > 1 ? 's' : ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
@@ -615,6 +739,27 @@ class _RecentsScreenState extends State<RecentsScreen>
     );
   }
 
+  Widget _buildEntryAvatar(
+      Contact? contact, String displayName, ColorScheme colorScheme) {
+    if (contact != null) {
+      return ContactAvatar(contact: contact, radius: 24);
+    }
+    final color = ContactAvatar.colorFromName(displayName);
+    final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : '#';
+    return CircleAvatar(
+      radius: 24,
+      backgroundColor: color.withValues(alpha: 0.15),
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
@@ -626,42 +771,53 @@ class _RecentsScreenState extends State<RecentsScreen>
     return DateFormat('MMM d, y').format(timestamp);
   }
 
-  void _showClearDialog(ColorScheme colorScheme) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear History'),
-        content: const Text(
-          'Are you sure you want to clear all recent activity?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await _prefsService.clearRecents();
-              Navigator.pop(ctx);
-              _loadData();
-            },
-            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0s';
+    if (seconds < 60) return '${seconds}s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m < 60) return s > 0 ? '${m}m ${s}s' : '${m}m';
+    final h = m ~/ 60;
+    final mm = m % 60;
+    return mm > 0 ? '${h}h ${mm}m' : '${h}h';
   }
 }
 
-class _RecentEntry {
-  final Contact contact;
-  final RecentContact recent;
-  _RecentEntry({required this.contact, required this.recent});
+class _CallEntry {
+  final Contact? contact;
+  final String number;
+  final String displayName;
+  final CallType callType;
+  final DateTime timestamp;
+  final int durationSeconds;
+
+  _CallEntry({
+    this.contact,
+    required this.number,
+    required this.displayName,
+    required this.callType,
+    required this.timestamp,
+    required this.durationSeconds,
+  });
 }
 
 class _FrequentEntry {
-  final Contact contact;
+  final Contact? contact;
+  final String number;
+  final String displayName;
   final int count;
-  _FrequentEntry({required this.contact, required this.count});
+
+  _FrequentEntry({
+    this.contact,
+    required this.number,
+    required this.displayName,
+    required this.count,
+  });
+
+  _FrequentEntry copyWith({int? count}) => _FrequentEntry(
+        contact: contact,
+        number: number,
+        displayName: displayName,
+        count: count ?? this.count,
+      );
 }
