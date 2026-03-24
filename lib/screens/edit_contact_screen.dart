@@ -59,6 +59,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
 
   final _formKey = GlobalKey<FormState>();
   bool _showMoreNameFields = false;
+  bool _photoRemoved = false;
 
   @override
   void initState() {
@@ -268,6 +269,14 @@ class _EditContactScreenState extends State<EditContactScreen> {
   }
 
   void _collectFields() {
+    // Photo removal — apply only at save time so discard leaves original intact
+    if (_photoRemoved) {
+      _contact.photo = null;
+      _contact.thumbnail = null;
+      _contact.photoFetched = true;
+      _contact.thumbnailFetched = true;
+    }
+
     // Name
     _contact.name = Name(
       first: _firstNameCtrl.text.trim(),
@@ -547,6 +556,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
   // ──────────────────────── Avatar ────────────────────────
 
   Uint8List? get _activePhotoBytes {
+    if (_photoRemoved) return null;
     final photo = _contact.photo;
     if (photo != null && photo.isNotEmpty) return photo;
     final thumbnail = _contact.thumbnail;
@@ -612,16 +622,15 @@ class _EditContactScreenState extends State<EditContactScreen> {
     setState(() {
       _contact.photo = bytes;
       _contact.photoFetched = true;
+      _photoRemoved = false; // new photo overrides any pending removal
     });
   }
 
   void _removeProfilePhoto() {
-    setState(() {
-      _contact.photo = null;
-      _contact.thumbnail = null;
-      _contact.photoFetched = true;
-      _contact.thumbnailFetched = true;
-    });
+    // Only mark as removed — do NOT mutate _contact yet.
+    // The actual nulling happens in _collectFields() so a discard
+    // leaves the original contact data untouched.
+    setState(() => _photoRemoved = true);
   }
 
   Widget _buildAvatarSection(ColorScheme colorScheme) {
