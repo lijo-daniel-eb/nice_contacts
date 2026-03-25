@@ -2342,6 +2342,10 @@ class _CommunicationHistorySheetState
   bool _permissionDenied = false;
   bool _showOlderCalls = false;
 
+  // Date filter
+  List<CallLogEntry>? _filteredCallEntries;
+  DateTimeRange? _callDateRange;
+
   @override
   void initState() {
     super.initState();
@@ -2365,6 +2369,44 @@ class _CommunicationHistorySheetState
     }).toList();
     if (mounted) setState(() => _callEntries = filtered);
   }
+
+  Future<void> _pickCallDateRange() async {
+    final all = _callEntries;
+    if (all == null || all.isEmpty) return;
+    var minDate = DateTime.fromMillisecondsSinceEpoch(all.last.timestamp ?? 0);
+    var maxDate = DateTime.fromMillisecondsSinceEpoch(all.first.timestamp ?? 0);
+    for (final e in all) {
+      final d = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
+      if (d.isBefore(minDate)) minDate = d;
+      if (d.isAfter(maxDate)) maxDate = d;
+    }
+    minDate = DateTime(minDate.year, minDate.month, minDate.day);
+    maxDate = DateTime(maxDate.year, maxDate.month, maxDate.day);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: minDate,
+      lastDate: maxDate,
+      initialDateRange: _callDateRange ?? DateTimeRange(start: minDate, end: maxDate),
+      helpText: 'Filter calls by date',
+    );
+    if (picked == null || !mounted) return;
+    final start = DateTime(picked.start.year, picked.start.month, picked.start.day);
+    final end = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
+    setState(() {
+      _callDateRange = picked;
+      _filteredCallEntries = all.where((e) {
+        final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
+        return !ts.isBefore(start) && !ts.isAfter(end);
+      }).toList();
+      _showOlderCalls = false;
+    });
+  }
+
+  void _clearCallDateFilter() => setState(() {
+        _filteredCallEntries = null;
+        _callDateRange = null;
+        _showOlderCalls = false;
+      });
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -2488,7 +2530,8 @@ class _CommunicationHistorySheetState
       );
     }
 
-    final all = _callEntries!;
+    final all = _filteredCallEntries ?? _callEntries!;
+    final baseAll = _callEntries!;
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - 2, now.day);
     final recent =
@@ -2496,9 +2539,9 @@ class _CommunicationHistorySheetState
     final older =
         all.where((e) => DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0).isBefore(cutoff)).toList();
 
-    final totalCalls = all.length;
-    final missedCount = all.where((e) => _isMissedType(e.callType)).length;
-    final connectedDurations = all
+    final totalCalls = baseAll.length;
+    final missedCount = baseAll.where((e) => _isMissedType(e.callType)).length;
+    final connectedDurations = baseAll
         .where((e) => !_isMissedType(e.callType) && (e.duration ?? 0) > 0)
         .map((e) => e.duration ?? 0)
         .toList();
@@ -2519,21 +2562,80 @@ class _CommunicationHistorySheetState
       items.add(_TimelineItem.call(e));
     }
 
-    return ListView.builder(
-      controller: controller,
-      padding: const EdgeInsets.only(bottom: 24),
-      itemCount: items.length + 1 + (older.isNotEmpty && !_showOlderCalls ? 1 : 0),
-      itemBuilder: (_, i) {
-        if (i == 0) return _buildSummaryStrip(totalCalls, avgSec, missedCount, theme, colorScheme);
-        final idx = i - 1;
-        if (idx < items.length) {
-          final item = items[idx];
-          return item.isHeader
-              ? _buildMonthHeader(item.monthLabel!, theme, colorScheme)
-              : _buildTimelineCallRow(item.entry!, theme, colorScheme);
-        }
-        return _buildShowOlderButton(older.length, theme, colorScheme);
-      },
+    // Build items list: filter bar + summary strip + timeline + show-older button
+    return Column(
+      children: [
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              const Icon(Icons.date_range_rounded,
+                  size: 16, color: MyContactsColors.cFF7C3AED),
+              const SizedBox(width: 6),
+              if (_callDateRange == null)
+                GestureDetector(
+                  onTap: _pickCallDateRange,
+                  child: Text(
+                    'Filter by date',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: MyContactsColors.cFF7C3AED,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: MyContactsColors.cFF7C3AED.withValues(alpha: 0.7),
+                    ),
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: Text(
+                    '${DateFormat('dd MMM yyyy').format(_callDateRange!.start)} – ${DateFormat('dd MMM yyyy').format(_callDateRange!.end)} (${all.length})',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: MyContactsColors.cFF7C3AED,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _clearCallDateFilter,
+                  child: Icon(Icons.close_rounded,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        if (all.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No calls in selected range',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              controller: controller,
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: items.length + 1 + (older.isNotEmpty && !_showOlderCalls ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i == 0) return _buildSummaryStrip(totalCalls, avgSec, missedCount, theme, colorScheme);
+                final idx = i - 1;
+                if (idx < items.length) {
+                  final item = items[idx];
+                  return item.isHeader
+                      ? _buildMonthHeader(item.monthLabel!, theme, colorScheme)
+                      : _buildTimelineCallRow(item.entry!, theme, colorScheme);
+                }
+                return _buildShowOlderButton(older.length, theme, colorScheme);
+              },
+            ),
+          ),
+      ],
     );
   }
 
