@@ -20,6 +20,7 @@ import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class ContactDetailScreen extends StatefulWidget {
   final Contact contact;
@@ -658,6 +659,39 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     );
   }
 
+  void _showQrCode() {
+    final buffer = StringBuffer()
+      ..writeln('BEGIN:VCARD')
+      ..writeln('VERSION:3.0')
+      ..writeln('FN:${contact.displayName}');
+    if (contact.name.last.isNotEmpty || contact.name.first.isNotEmpty) {
+      buffer.writeln('N:${contact.name.last};${contact.name.first};;;');
+    }
+    for (final phone in contact.phones) {
+      buffer.writeln('TEL:${phone.number}');
+    }
+    for (final email in contact.emails) {
+      buffer.writeln('EMAIL:${email.address}');
+    }
+    buffer.write('END:VCARD');
+    final vCard = buffer.toString();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _QrCodeSheet(
+        contactName: contact.displayName,
+        vCard: vCard,
+        onShare: _shareContact,
+      ),
+    );
+  }
+
   Future<void> _pickRingtone() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -1011,6 +1045,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                         label: 'Recordings',
                         color: MyContactsColors.cFF00BCD4,
                         onTap: _showRecordingsPanel,
+                      ),
+                      _buildQuickAction(
+                        context,
+                        icon: Icons.qr_code_rounded,
+                        label: 'QR Code',
+                        color: MyContactsColors.cFFF4A300,
+                        onTap: _showQrCode,
                       ),
                     ],
                   ),
@@ -2769,6 +2810,131 @@ class _TimelineItem {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
+
+// ─── QR Code Sheet ───────────────────────────────────────────────────────────
+
+class _QrCodeSheet extends StatelessWidget {
+  final String contactName;
+  final String vCard;
+  final VoidCallback onShare;
+
+  const _QrCodeSheet({
+    required this.contactName,
+    required this.vCard,
+    required this.onShare,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const accent = MyContactsColors.cFFF4A300;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (ctx, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.qr_code_rounded, color: accent, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'QR Code',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              contactName,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+            ),
+            const SizedBox(height: 28),
+            // QR Code
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: MyContactsColors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.18),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: QrImageView(
+                  data: vCard,
+                  version: QrVersions.auto,
+                  size: 240,
+                  backgroundColor: MyContactsColors.white,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: MyContactsColors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: MyContactsColors.black,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Caption
+            Center(
+              child: Text(
+                'Scan to save contact',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            // Share button
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                onShare();
+              },
+              icon: const Icon(Icons.share_rounded, size: 18),
+              label: const Text('Share Contact'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: accent,
+                side: const BorderSide(color: accent),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Recordings Panel Sheet ───────────────────────────────────────────────────
 
 class _RecordingsPanelSheet extends StatefulWidget {
   final List<CallRecordingItem> recordings;
