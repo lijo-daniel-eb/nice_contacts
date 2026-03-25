@@ -631,12 +631,30 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
         return _CommunicationHistorySheet(
           contactKeys: contactKeys,
           contactName: contact.displayName,
-          recordings: _callRecordings,
-          isLoadingRecordings: _isLoadingRecordings,
           theme: theme,
           colorScheme: colorScheme,
         );
       },
+    );
+  }
+
+  void _showRecordingsPanel() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _RecordingsPanelSheet(
+        recordings: _callRecordings,
+        isLoading: _isLoadingRecordings,
+        contactName: contact.displayName,
+        theme: theme,
+        colorScheme: colorScheme,
+      ),
     );
   }
 
@@ -969,7 +987,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Row 2: Share, History
+                  // Row 2: Share, History, Recordings
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -986,6 +1004,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                         label: 'History',
                         color: MyContactsColors.cFF7C3AED,
                         onTap: _showCommunicationHistory,
+                      ),
+                      _buildQuickAction(
+                        context,
+                        icon: Icons.graphic_eq_rounded,
+                        label: 'Recordings',
+                        color: MyContactsColors.cFF00BCD4,
+                        onTap: _showRecordingsPanel,
                       ),
                     ],
                   ),
@@ -2295,16 +2320,12 @@ class _InfoItem {
 class _CommunicationHistorySheet extends StatefulWidget {
   final Set<String> contactKeys;
   final String contactName;
-  final List<CallRecordingItem> recordings;
-  final bool isLoadingRecordings;
   final ThemeData theme;
   final ColorScheme colorScheme;
 
   const _CommunicationHistorySheet({
     required this.contactKeys,
     required this.contactName,
-    required this.recordings,
-    required this.isLoadingRecordings,
     required this.theme,
     required this.colorScheme,
   });
@@ -2315,104 +2336,16 @@ class _CommunicationHistorySheet extends StatefulWidget {
 }
 
 class _CommunicationHistorySheetState
-    extends State<_CommunicationHistorySheet>
-    with SingleTickerProviderStateMixin {
+    extends State<_CommunicationHistorySheet> {
   final _callLogService = CallLogService();
-  late final TabController _tabController;
   List<CallLogEntry>? _callEntries;
   bool _permissionDenied = false;
-
-  // Recordings playback
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _playingPath;
-  bool _isPlaybackBusy = false;
-
-  // Recordings date filter
-  List<CallRecordingItem>? _filteredRecordings;
-  DateTimeRange? _activeRange;
-
-  // Calls timeline
   bool _showOlderCalls = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadCalls();
-    _audioPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) return;
-      setState(() => _playingPath = null);
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _audioPlayer.dispose();
-    super.dispose();
-  }
-
-  Future<void> _togglePlayback(CallRecordingItem recording) async {
-    if (_isPlaybackBusy) return;
-    _isPlaybackBusy = true;
-    try {
-      if (_playingPath == recording.path) {
-        await _audioPlayer.stop();
-        if (mounted) setState(() => _playingPath = null);
-      } else {
-        await _audioPlayer.stop();
-        await _audioPlayer.play(DeviceFileSource(recording.path));
-        if (mounted) setState(() => _playingPath = recording.path);
-      }
-    } finally {
-      _isPlaybackBusy = false;
-    }
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  Future<void> _pickDateRange() async {
-    final all = widget.recordings;
-    if (all.isEmpty) return;
-
-    var minDate = DateTime(
-        all.first.modifiedAt.year, all.first.modifiedAt.month, all.first.modifiedAt.day);
-    var maxDate = minDate;
-    for (final r in all) {
-      final d = DateTime(r.modifiedAt.year, r.modifiedAt.month, r.modifiedAt.day);
-      if (d.isBefore(minDate)) minDate = d;
-      if (d.isAfter(maxDate)) maxDate = d;
-    }
-
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: minDate,
-      lastDate: maxDate,
-      initialDateRange: _activeRange ?? DateTimeRange(start: minDate, end: maxDate),
-      helpText: 'Filter recordings by date',
-    );
-    if (picked == null || !mounted) return;
-
-    final start = DateTime(picked.start.year, picked.start.month, picked.start.day);
-    final end = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
-
-    setState(() {
-      _activeRange = picked;
-      _filteredRecordings = all.where((r) {
-        return !r.modifiedAt.isBefore(start) && !r.modifiedAt.isAfter(end);
-      }).toList();
-    });
-  }
-
-  void _clearDateFilter() {
-    setState(() {
-      _filteredRecordings = null;
-      _activeRange = null;
-    });
   }
 
   Future<void> _loadCalls() async {
@@ -2431,90 +2364,6 @@ class _CommunicationHistorySheetState
       return key.isNotEmpty && widget.contactKeys.contains(key);
     }).toList();
     if (mounted) setState(() => _callEntries = filtered);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = widget.theme;
-    final colorScheme = widget.colorScheme;
-
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.65,
-      minChildSize: 0.35,
-      maxChildSize: 0.92,
-      builder: (_, controller) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.history_rounded),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Communication History',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    widget.contactName,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.call_rounded, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        _callEntries == null
-                            ? 'Calls'
-                            : 'Calls (${_callEntries!.length})',
-                      ),
-                    ],
-                  ),
-                ),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.mic_rounded, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Recordings (${widget.recordings.length})',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildCallsTab(theme, colorScheme, controller),
-                  _buildRecordingsTab(theme, colorScheme, controller),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -2560,7 +2409,50 @@ class _CommunicationHistorySheetState
 
   String _monthKey(DateTime ts) => DateFormat('MMMM yyyy').format(ts);
 
-  // ── calls tab ─────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final colorScheme = widget.colorScheme;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.65,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      builder: (_, controller) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_rounded),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Call History',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    widget.contactName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: _buildCallsTab(theme, colorScheme, controller)),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildCallsTab(
       ThemeData theme, ColorScheme colorScheme, ScrollController controller) {
@@ -2599,18 +2491,11 @@ class _CommunicationHistorySheetState
     final all = _callEntries!;
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - 2, now.day);
+    final recent =
+        all.where((e) => !DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0).isBefore(cutoff)).toList();
+    final older =
+        all.where((e) => DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0).isBefore(cutoff)).toList();
 
-    final recent = all.where((e) {
-      final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
-      return !ts.isBefore(cutoff);
-    }).toList();
-
-    final older = all.where((e) {
-      final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
-      return ts.isBefore(cutoff);
-    }).toList();
-
-    // Stats
     final totalCalls = all.length;
     final missedCount = all.where((e) => _isMissedType(e.callType)).length;
     final connectedDurations = all
@@ -2621,16 +2506,15 @@ class _CommunicationHistorySheetState
         ? 0
         : connectedDurations.reduce((a, b) => a + b) ~/ connectedDurations.length;
 
-    // Build grouped timeline items: interleave month headers + call rows
     final displayEntries = _showOlderCalls ? all : recent;
     final List<_TimelineItem> items = [];
     String? lastMonth;
     for (final e in displayEntries) {
       final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
-      final monthKey = _monthKey(ts);
-      if (monthKey != lastMonth) {
-        items.add(_TimelineItem.monthHeader(monthKey));
-        lastMonth = monthKey;
+      final mk = _monthKey(ts);
+      if (mk != lastMonth) {
+        items.add(_TimelineItem.monthHeader(mk));
+        lastMonth = mk;
       }
       items.add(_TimelineItem.call(e));
     }
@@ -2638,23 +2522,16 @@ class _CommunicationHistorySheetState
     return ListView.builder(
       controller: controller,
       padding: const EdgeInsets.only(bottom: 24),
-      itemCount: items.length +
-          1 + // summary strip
-          (older.isNotEmpty && !_showOlderCalls ? 1 : 0), // show-older button
+      itemCount: items.length + 1 + (older.isNotEmpty && !_showOlderCalls ? 1 : 0),
       itemBuilder: (_, i) {
-        // index 0 → summary strip
-        if (i == 0) {
-          return _buildSummaryStrip(totalCalls, avgSec, missedCount, theme, colorScheme);
+        if (i == 0) return _buildSummaryStrip(totalCalls, avgSec, missedCount, theme, colorScheme);
+        final idx = i - 1;
+        if (idx < items.length) {
+          final item = items[idx];
+          return item.isHeader
+              ? _buildMonthHeader(item.monthLabel!, theme, colorScheme)
+              : _buildTimelineCallRow(item.entry!, theme, colorScheme);
         }
-        final adjustedIndex = i - 1;
-        if (adjustedIndex < items.length) {
-          final item = items[adjustedIndex];
-          if (item.isHeader) {
-            return _buildMonthHeader(item.monthLabel!, theme, colorScheme);
-          }
-          return _buildTimelineCallRow(item.entry!, theme, colorScheme);
-        }
-        // show-older button
         return _buildShowOlderButton(older.length, theme, colorScheme);
       },
     );
@@ -2669,73 +2546,50 @@ class _CommunicationHistorySheetState
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25)),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatCell(total.toString(), 'Total calls',
-              MyContactsColors.cFF2196F3, theme),
+          _buildStatCell(total.toString(), 'Total calls', MyContactsColors.cFF2196F3, theme),
           _buildStatDivider(colorScheme),
-          _buildStatCell(
-              avgLabel.isEmpty ? '—' : avgLabel,
-              'Avg duration',
-              MyContactsColors.cFF4CAF50,
-              theme),
+          _buildStatCell(avgLabel.isEmpty ? '\u2014' : avgLabel, 'Avg duration', MyContactsColors.cFF4CAF50, theme),
           _buildStatDivider(colorScheme),
-          _buildStatCell(
-              missed.toString(), 'Missed', colorScheme.error, theme),
+          _buildStatCell(missed.toString(), 'Missed', colorScheme.error, theme),
         ],
       ),
     );
   }
 
-  Widget _buildStatCell(
-      String value, String label, Color color, ThemeData theme) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(value,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800, color: color)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: color.withValues(alpha: 0.7))),
-      ],
-    );
-  }
-
-  Widget _buildStatDivider(ColorScheme cs) => Container(
-      height: 32,
-      width: 1,
-      color: cs.outlineVariant.withValues(alpha: 0.4));
-
-  Widget _buildMonthHeader(
-      String label, ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-      child: Row(
+  Widget _buildStatCell(String value, String label, Color color, ThemeData theme) =>
+      Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface.withValues(alpha: 0.45),
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Divider(
-                height: 1,
-                color: colorScheme.outlineVariant.withValues(alpha: 0.35)),
-          ),
+          Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color.withValues(alpha: 0.7))),
         ],
-      ),
-    );
-  }
+      );
+
+  Widget _buildStatDivider(ColorScheme cs) =>
+      Container(height: 32, width: 1, color: cs.outlineVariant.withValues(alpha: 0.4));
+
+  Widget _buildMonthHeader(String label, ThemeData theme, ColorScheme colorScheme) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+        child: Row(
+          children: [
+            Text(label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface.withValues(alpha: 0.45),
+                  letterSpacing: 0.6,
+                )),
+            const SizedBox(width: 10),
+            Expanded(child: Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.35))),
+          ],
+        ),
+      );
 
   Widget _buildTimelineCallRow(
       CallLogEntry entry, ThemeData theme, ColorScheme colorScheme) {
@@ -2743,18 +2597,14 @@ class _CommunicationHistorySheetState
     final color = _colorForType(entry.callType, colorScheme);
     final icon = _iconForType(entry.callType);
     final ts = DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
-    final dateLabel = _naturalDate(ts);
     final durLabel = _durationLabel(entry.duration ?? 0);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Colored direction indicator
           Container(
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
@@ -2762,25 +2612,19 @@ class _CommunicationHistorySheetState
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 12),
-          // Date + duration
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dateLabel,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isMissed ? color : colorScheme.onSurface,
-                  ),
-                ),
+                Text(_naturalDate(ts),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isMissed ? color : colorScheme.onSurface,
+                    )),
                 if (durLabel.isNotEmpty)
-                  Text(
-                    durLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
+                  Text(durLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),
@@ -2789,157 +2633,20 @@ class _CommunicationHistorySheetState
     );
   }
 
-  Widget _buildShowOlderButton(
-      int count, ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: OutlinedButton.icon(
-        onPressed: () => setState(() => _showOlderCalls = true),
-        icon: const Icon(Icons.expand_more_rounded, size: 18),
-        label: Text('Show $count older call${count == 1 ? '' : 's'}'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: colorScheme.onSurface.withValues(alpha: 0.6),
-          side: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-          minimumSize: const Size(double.infinity, 40),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecordingsTab(
-      ThemeData theme, ColorScheme colorScheme, ScrollController controller) {
-    if (widget.isLoadingRecordings) {
-      return Center(
-          child: CircularProgressIndicator(color: colorScheme.primary));
-    }
-    if (widget.recordings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.mic_off_rounded,
-                size: 48, color: colorScheme.onSurface.withValues(alpha: 0.3)),
-            const SizedBox(height: 12),
-            Text(
-              'No call recordings found',
-              style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.5)),
-            ),
-          ],
+  Widget _buildShowOlderButton(int count, ThemeData theme, ColorScheme colorScheme) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: OutlinedButton.icon(
+          onPressed: () => setState(() => _showOlderCalls = true),
+          icon: const Icon(Icons.expand_more_rounded, size: 18),
+          label: Text('Show $count older call${count == 1 ? '' : 's'}'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.6),
+            side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            minimumSize: const Size(double.infinity, 40),
+          ),
         ),
       );
-    }
-
-    final displayList = _filteredRecordings ?? widget.recordings;
-
-    return Column(
-      children: [
-        // Filter bar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: [
-              if (_activeRange == null) ...[
-                const Icon(Icons.date_range_rounded,
-                    size: 16, color: MyContactsColors.cFF7C3AED),
-                const SizedBox(width: 6),
-                GestureDetector(
-                  onTap: _pickDateRange,
-                  child: Text(
-                    'Filter by date',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: MyContactsColors.cFF7C3AED,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                      decorationColor: MyContactsColors.cFF7C3AED.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                const Icon(Icons.date_range_rounded,
-                    size: 16, color: MyContactsColors.cFF7C3AED),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '${DateFormat('dd MMM yyyy').format(_activeRange!.start)} – ${DateFormat('dd MMM yyyy').format(_activeRange!.end)}'
-                    ' (${displayList.length})',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: MyContactsColors.cFF7C3AED,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _clearDateFilter,
-                  child: Icon(Icons.close_rounded,
-                      size: 18,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        if (displayList.isEmpty)
-          Expanded(
-            child: Center(
-              child: Text(
-                'No recordings in selected range',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.5)),
-              ),
-            ),
-          )
-        else
-          Expanded(
-            child: ListView.separated(
-              controller: controller,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: displayList.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) =>
-                  _buildRecordingTile(displayList[i], theme, colorScheme),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildRecordingTile(
-      CallRecordingItem item, ThemeData theme, ColorScheme colorScheme) {
-    final isPlaying = _playingPath == item.path;
-    return ListTile(
-      dense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      onTap: () => _togglePlayback(item),
-      title: Text(
-        item.fileName,
-        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '${DateFormat('dd MMM yyyy, hh:mm a').format(item.modifiedAt)} • ${_formatBytes(item.sizeBytes)}',
-        style: theme.textTheme.bodySmall
-            ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
-      ),
-      trailing: IconButton(
-        tooltip: isPlaying ? 'Stop playback' : 'Play recording',
-        onPressed: () => _togglePlayback(item),
-        icon: Icon(
-          isPlaying
-              ? Icons.pause_circle_filled_rounded
-              : Icons.play_circle_fill_rounded,
-          color: isPlaying
-              ? MyContactsColors.cFF4CAF50
-              : colorScheme.primary.withValues(alpha: 0.78),
-          size: 26,
-        ),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2957,6 +2664,275 @@ class _TimelineItem {
 
   factory _TimelineItem.call(CallLogEntry e) =>
       _TimelineItem._(isHeader: false, entry: e);
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+
+class _RecordingsPanelSheet extends StatefulWidget {
+  final List<CallRecordingItem> recordings;
+  final bool isLoading;
+  final String contactName;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  const _RecordingsPanelSheet({
+    required this.recordings,
+    required this.isLoading,
+    required this.contactName,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  @override
+  State<_RecordingsPanelSheet> createState() => _RecordingsPanelSheetState();
+}
+
+class _RecordingsPanelSheetState extends State<_RecordingsPanelSheet> {
+  static const _accentColor = MyContactsColors.cFF00BCD4;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _playingPath;
+  bool _isPlaybackBusy = false;
+  List<CallRecordingItem>? _filteredRecordings;
+  DateTimeRange? _activeRange;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() => _playingPath = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback(CallRecordingItem item) async {
+    if (_isPlaybackBusy) return;
+    _isPlaybackBusy = true;
+    try {
+      if (_playingPath == item.path) {
+        await _audioPlayer.stop();
+        if (mounted) setState(() => _playingPath = null);
+      } else {
+        await _audioPlayer.stop();
+        await _audioPlayer.play(DeviceFileSource(item.path));
+        if (mounted) setState(() => _playingPath = item.path);
+      }
+    } finally {
+      _isPlaybackBusy = false;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _pickDateRange() async {
+    final all = widget.recordings;
+    if (all.isEmpty) return;
+    var minDate = DateTime(all.first.modifiedAt.year, all.first.modifiedAt.month, all.first.modifiedAt.day);
+    var maxDate = minDate;
+    for (final r in all) {
+      final d = DateTime(r.modifiedAt.year, r.modifiedAt.month, r.modifiedAt.day);
+      if (d.isBefore(minDate)) minDate = d;
+      if (d.isAfter(maxDate)) maxDate = d;
+    }
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: minDate,
+      lastDate: maxDate,
+      initialDateRange: _activeRange ?? DateTimeRange(start: minDate, end: maxDate),
+      helpText: 'Filter recordings by date',
+    );
+    if (picked == null || !mounted) return;
+    final start = DateTime(picked.start.year, picked.start.month, picked.start.day);
+    final end = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
+    setState(() {
+      _activeRange = picked;
+      _filteredRecordings = widget.recordings
+          .where((r) => !r.modifiedAt.isBefore(start) && !r.modifiedAt.isAfter(end))
+          .toList();
+    });
+  }
+
+  void _clearDateFilter() => setState(() {
+        _filteredRecordings = null;
+        _activeRange = null;
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final colorScheme = widget.colorScheme;
+    final displayList = _filteredRecordings ?? widget.recordings;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      builder: (_, controller) {
+        return Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq_rounded, color: _accentColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Call Recordings',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text(
+                    widget.contactName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // Filter bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.date_range_rounded,
+                      size: 16, color: _accentColor),
+                  const SizedBox(width: 6),
+                  if (_activeRange == null)
+                    GestureDetector(
+                      onTap: widget.recordings.isEmpty ? null : _pickDateRange,
+                      child: Text(
+                        'Filter by date',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _accentColor,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: _accentColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Expanded(
+                      child: Text(
+                        '${DateFormat('dd MMM yyyy').format(_activeRange!.start)} – ${DateFormat('dd MMM yyyy').format(_activeRange!.end)} (${displayList.length})',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: _accentColor, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _clearDateFilter,
+                      child: Icon(Icons.close_rounded,
+                          size: 18,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Body
+            Expanded(child: _buildBody(displayList, theme, colorScheme, controller)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(List<CallRecordingItem> list, ThemeData theme,
+      ColorScheme colorScheme, ScrollController controller) {
+    if (widget.isLoading) {
+      return Center(child: CircularProgressIndicator(color: colorScheme.primary));
+    }
+    if (widget.recordings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic_off_rounded,
+                size: 48, color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text('No call recordings found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5))),
+          ],
+        ),
+      );
+    }
+    if (list.isEmpty) {
+      return Center(
+        child: Text('No recordings in selected range',
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.5))),
+      );
+    }
+    return ListView.separated(
+      controller: controller,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (_, i) => _buildTile(list[i], theme, colorScheme),
+    );
+  }
+
+  Widget _buildTile(
+      CallRecordingItem item, ThemeData theme, ColorScheme colorScheme) {
+    final isPlaying = _playingPath == item.path;
+    return ListTile(
+      dense: true,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      onTap: () => _togglePlayback(item),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: _accentColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.graphic_eq_rounded,
+            color: _accentColor, size: 20),
+      ),
+      title: Text(
+        item.fileName,
+        style: theme.textTheme.bodyMedium
+            ?.copyWith(fontWeight: FontWeight.w600),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        '${DateFormat('dd MMM yyyy, hh:mm a').format(item.modifiedAt)} • ${_formatBytes(item.sizeBytes)}',
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
+      ),
+      trailing: IconButton(
+        tooltip: isPlaying ? 'Stop' : 'Play',
+        onPressed: () => _togglePlayback(item),
+        icon: Icon(
+          isPlaying
+              ? Icons.pause_circle_filled_rounded
+              : Icons.play_circle_fill_rounded,
+          color: isPlaying
+              ? MyContactsColors.cFF4CAF50
+              : colorScheme.primary.withValues(alpha: 0.78),
+          size: 26,
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
