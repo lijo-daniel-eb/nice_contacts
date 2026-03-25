@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/screens/fake_call_screen.dart';
 import 'package:my_contacts/services/call_recordings_service.dart';
+import 'package:my_contacts/services/call_log_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/services/contact_ringtone_service.dart';
@@ -564,6 +565,81 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     await Share.share(buffer.toString());
   }
 
+  Future<void> _showCallHistory() async {
+    if (!CallLogService.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Call history is only available on Android')),
+      );
+      return;
+    }
+
+    // Collect normalised keys for all numbers belonging to this contact.
+    final contactKeys = contact.phones
+        .map((p) => CallLogService.normalizeNumber(p.normalizedNumber.isNotEmpty
+            ? p.normalizedNumber
+            : p.number))
+        .where((k) => k.isNotEmpty)
+        .toSet();
+
+    if (contactKeys.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone numbers on this contact')),
+      );
+      return;
+    }
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Show sheet with a loading state first.
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return _CallHistorySheet(
+          contactKeys: contactKeys,
+          contactName: contact.displayName,
+          theme: theme,
+          colorScheme: colorScheme,
+        );
+      },
+    );
+  }
+
+  Future<void> _showCommunicationHistory() async {
+    final contactKeys = contact.phones
+        .map((p) => CallLogService.normalizeNumber(
+            p.normalizedNumber.isNotEmpty ? p.normalizedNumber : p.number))
+        .where((k) => k.isNotEmpty)
+        .toSet();
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return _CommunicationHistorySheet(
+          contactKeys: contactKeys,
+          contactName: contact.displayName,
+          recordings: _callRecordings,
+          isLoadingRecordings: _isLoadingRecordings,
+          theme: theme,
+          colorScheme: colorScheme,
+        );
+      },
+    );
+  }
+
   Future<void> _pickRingtone() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -842,55 +918,76 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Column(
                 children: [
-                  if (contact.phones.isNotEmpty)
-                    _buildQuickAction(
-                      context,
-                      icon: Icons.call_rounded,
-                      label: 'Call',
-                      color: MyContactsColors.cFF4CAF50,
-                      onTap: () => _makeCall(contact.phones.first.number),
-                    ),
-                  if (contact.phones.isNotEmpty)
-                    _buildQuickAction(
-                      context,
-                      icon: Icons.phone_callback_rounded,
-                      label: 'Fake Call',
-                      color: MyContactsColors.cFFE91E63,
-                      onTap: () => _fakeCall(contact.phones.first.number),
-                    ),
-                  if (contact.phones.isNotEmpty)
-                    _buildQuickAction(
-                      context,
-                      icon: Icons.message_rounded,
-                      label: 'Message',
-                      color: MyContactsColors.cFF2196F3,
-                      onTap: () => _sendSms(contact.phones.first.number),
-                    ),
-                  if (contact.phones.isNotEmpty)
-                    _buildQuickAction(
-                      context,
-                      icon: FontAwesomeIcons.whatsapp,
-                      label: 'WhatsApp',
-                      color: MyContactsColors.cFF25D366,
-                      onTap: () => _openWhatsApp(contact.phones.first.number),
-                    ),
-                  if (contact.emails.isNotEmpty)
-                    _buildQuickAction(
-                      context,
-                      icon: Icons.email_rounded,
-                      label: 'Email',
-                      color: MyContactsColors.cFFFF9800,
-                      onTap: () => _sendEmail(contact.emails.first.address),
-                    ),
-                  _buildQuickAction(
-                    context,
-                    icon: Icons.share_rounded,
-                    label: 'Share',
-                    color: colorScheme.tertiary,
-                    onTap: _shareContact,
+                  // Row 1: Call, Fake Call, Message, WhatsApp, Email (up to 5)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      if (contact.phones.isNotEmpty)
+                        _buildQuickAction(
+                          context,
+                          icon: Icons.call_rounded,
+                          label: 'Call',
+                          color: MyContactsColors.cFF4CAF50,
+                          onTap: () => _makeCall(contact.phones.first.number),
+                        ),
+                      if (contact.phones.isNotEmpty)
+                        _buildQuickAction(
+                          context,
+                          icon: Icons.phone_callback_rounded,
+                          label: 'Fake Call',
+                          color: MyContactsColors.cFFE91E63,
+                          onTap: () => _fakeCall(contact.phones.first.number),
+                        ),
+                      if (contact.phones.isNotEmpty)
+                        _buildQuickAction(
+                          context,
+                          icon: Icons.message_rounded,
+                          label: 'Message',
+                          color: MyContactsColors.cFF2196F3,
+                          onTap: () => _sendSms(contact.phones.first.number),
+                        ),
+                      if (contact.phones.isNotEmpty)
+                        _buildQuickAction(
+                          context,
+                          icon: FontAwesomeIcons.whatsapp,
+                          label: 'WhatsApp',
+                          color: MyContactsColors.cFF25D366,
+                          onTap: () =>
+                              _openWhatsApp(contact.phones.first.number),
+                        ),
+                      if (contact.emails.isNotEmpty)
+                        _buildQuickAction(
+                          context,
+                          icon: Icons.email_rounded,
+                          label: 'Email',
+                          color: MyContactsColors.cFFFF9800,
+                          onTap: () =>
+                              _sendEmail(contact.emails.first.address),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Row 2: Share, History
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildQuickAction(
+                        context,
+                        icon: Icons.share_rounded,
+                        label: 'Share',
+                        color: colorScheme.tertiary,
+                        onTap: _shareContact,
+                      ),
+                      _buildQuickAction(
+                        context,
+                        icon: Icons.history_rounded,
+                        label: 'History',
+                        color: MyContactsColors.cFF7C3AED,
+                        onTap: _showCommunicationHistory,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -998,12 +1095,6 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                     ),
 
                   _buildRingtoneCard(
-                    context,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                  ),
-
-                  _buildCallRecordingsCard(
                     context,
                     colorScheme: colorScheme,
                     theme: theme,
@@ -2196,3 +2287,893 @@ class _InfoItem {
 
   _InfoItem({required this.label, required this.value});
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Call History bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CommunicationHistorySheet extends StatefulWidget {
+  final Set<String> contactKeys;
+  final String contactName;
+  final List<CallRecordingItem> recordings;
+  final bool isLoadingRecordings;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  const _CommunicationHistorySheet({
+    required this.contactKeys,
+    required this.contactName,
+    required this.recordings,
+    required this.isLoadingRecordings,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  @override
+  State<_CommunicationHistorySheet> createState() =>
+      _CommunicationHistorySheetState();
+}
+
+class _CommunicationHistorySheetState
+    extends State<_CommunicationHistorySheet>
+    with SingleTickerProviderStateMixin {
+  final _callLogService = CallLogService();
+  late final TabController _tabController;
+  List<CallLogEntry>? _callEntries;
+  bool _permissionDenied = false;
+
+  // Recordings playback
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _playingPath;
+  bool _isPlaybackBusy = false;
+
+  // Recordings date filter
+  List<CallRecordingItem>? _filteredRecordings;
+  DateTimeRange? _activeRange;
+
+  // Calls timeline
+  bool _showOlderCalls = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadCalls();
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() => _playingPath = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback(CallRecordingItem recording) async {
+    if (_isPlaybackBusy) return;
+    _isPlaybackBusy = true;
+    try {
+      if (_playingPath == recording.path) {
+        await _audioPlayer.stop();
+        if (mounted) setState(() => _playingPath = null);
+      } else {
+        await _audioPlayer.stop();
+        await _audioPlayer.play(DeviceFileSource(recording.path));
+        if (mounted) setState(() => _playingPath = recording.path);
+      }
+    } finally {
+      _isPlaybackBusy = false;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _pickDateRange() async {
+    final all = widget.recordings;
+    if (all.isEmpty) return;
+
+    var minDate = DateTime(
+        all.first.modifiedAt.year, all.first.modifiedAt.month, all.first.modifiedAt.day);
+    var maxDate = minDate;
+    for (final r in all) {
+      final d = DateTime(r.modifiedAt.year, r.modifiedAt.month, r.modifiedAt.day);
+      if (d.isBefore(minDate)) minDate = d;
+      if (d.isAfter(maxDate)) maxDate = d;
+    }
+
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: minDate,
+      lastDate: maxDate,
+      initialDateRange: _activeRange ?? DateTimeRange(start: minDate, end: maxDate),
+      helpText: 'Filter recordings by date',
+    );
+    if (picked == null || !mounted) return;
+
+    final start = DateTime(picked.start.year, picked.start.month, picked.start.day);
+    final end = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
+
+    setState(() {
+      _activeRange = picked;
+      _filteredRecordings = all.where((r) {
+        return !r.modifiedAt.isBefore(start) && !r.modifiedAt.isAfter(end);
+      }).toList();
+    });
+  }
+
+  void _clearDateFilter() {
+    setState(() {
+      _filteredRecordings = null;
+      _activeRange = null;
+    });
+  }
+
+  Future<void> _loadCalls() async {
+    if (!CallLogService.isSupported) {
+      if (mounted) setState(() => _callEntries = []);
+      return;
+    }
+    final granted = await _callLogService.requestPermission();
+    if (!granted) {
+      if (mounted) setState(() => _permissionDenied = true);
+      return;
+    }
+    final all = await _callLogService.getEntries(limit: 500);
+    final filtered = all.where((e) {
+      final key = CallLogService.normalizeNumber(e.number);
+      return key.isNotEmpty && widget.contactKeys.contains(key);
+    }).toList();
+    if (mounted) setState(() => _callEntries = filtered);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final colorScheme = widget.colorScheme;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.65,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      builder: (_, controller) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_rounded),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Communication History',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    widget.contactName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            TabBar(
+              controller: _tabController,
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.call_rounded, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        _callEntries == null
+                            ? 'Calls'
+                            : 'Calls (${_callEntries!.length})',
+                      ),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.mic_rounded, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Recordings (${widget.recordings.length})',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildCallsTab(theme, colorScheme, controller),
+                  _buildRecordingsTab(theme, colorScheme, controller),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  bool _isMissedType(CallType? t) =>
+      t == CallType.missed || t == CallType.rejected || t == CallType.blocked;
+
+  Color _colorForType(CallType? t, ColorScheme cs) => switch (t) {
+        CallType.incoming || CallType.wifiIncoming => MyContactsColors.cFF4CAF50,
+        CallType.outgoing || CallType.wifiOutgoing => MyContactsColors.cFF2196F3,
+        CallType.missed => cs.error,
+        CallType.rejected || CallType.blocked => MyContactsColors.cFFFF9800,
+        _ => cs.onSurface.withValues(alpha: 0.4),
+      };
+
+  IconData _iconForType(CallType? t) => switch (t) {
+        CallType.incoming || CallType.wifiIncoming => Icons.call_received_rounded,
+        CallType.outgoing || CallType.wifiOutgoing => Icons.call_made_rounded,
+        CallType.missed => Icons.call_missed_rounded,
+        CallType.rejected || CallType.blocked => Icons.call_missed_outgoing_rounded,
+        _ => Icons.phone_rounded,
+      };
+
+  String _naturalDate(DateTime ts) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final day = DateTime(ts.year, ts.month, ts.day);
+    final time = DateFormat('h:mm a').format(ts);
+    if (day == today) return 'Today $time';
+    if (day == yesterday) return 'Yesterday $time';
+    return '${DateFormat('MMM d').format(ts)}, $time';
+  }
+
+  String _durationLabel(int seconds) {
+    if (seconds <= 0) return '';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m == 0) return '${s}s';
+    if (s == 0) return '${m}m';
+    return '${m}m ${s}s';
+  }
+
+  String _monthKey(DateTime ts) => DateFormat('MMMM yyyy').format(ts);
+
+  // ── calls tab ─────────────────────────────────────────────────────────────
+
+  Widget _buildCallsTab(
+      ThemeData theme, ColorScheme colorScheme, ScrollController controller) {
+    if (_permissionDenied) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'Call log permission is required to view call history.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+          ),
+        ),
+      );
+    }
+    if (_callEntries == null) {
+      return Center(child: CircularProgressIndicator(color: colorScheme.primary));
+    }
+    if (_callEntries!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phone_missed_rounded,
+                size: 48, color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text('No call history found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5))),
+          ],
+        ),
+      );
+    }
+
+    final all = _callEntries!;
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year, now.month - 2, now.day);
+
+    final recent = all.where((e) {
+      final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
+      return !ts.isBefore(cutoff);
+    }).toList();
+
+    final older = all.where((e) {
+      final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
+      return ts.isBefore(cutoff);
+    }).toList();
+
+    // Stats
+    final totalCalls = all.length;
+    final missedCount = all.where((e) => _isMissedType(e.callType)).length;
+    final connectedDurations = all
+        .where((e) => !_isMissedType(e.callType) && (e.duration ?? 0) > 0)
+        .map((e) => e.duration ?? 0)
+        .toList();
+    final avgSec = connectedDurations.isEmpty
+        ? 0
+        : connectedDurations.reduce((a, b) => a + b) ~/ connectedDurations.length;
+
+    // Build grouped timeline items: interleave month headers + call rows
+    final displayEntries = _showOlderCalls ? all : recent;
+    final List<_TimelineItem> items = [];
+    String? lastMonth;
+    for (final e in displayEntries) {
+      final ts = DateTime.fromMillisecondsSinceEpoch(e.timestamp ?? 0);
+      final monthKey = _monthKey(ts);
+      if (monthKey != lastMonth) {
+        items.add(_TimelineItem.monthHeader(monthKey));
+        lastMonth = monthKey;
+      }
+      items.add(_TimelineItem.call(e));
+    }
+
+    return ListView.builder(
+      controller: controller,
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: items.length +
+          1 + // summary strip
+          (older.isNotEmpty && !_showOlderCalls ? 1 : 0), // show-older button
+      itemBuilder: (_, i) {
+        // index 0 → summary strip
+        if (i == 0) {
+          return _buildSummaryStrip(totalCalls, avgSec, missedCount, theme, colorScheme);
+        }
+        final adjustedIndex = i - 1;
+        if (adjustedIndex < items.length) {
+          final item = items[adjustedIndex];
+          if (item.isHeader) {
+            return _buildMonthHeader(item.monthLabel!, theme, colorScheme);
+          }
+          return _buildTimelineCallRow(item.entry!, theme, colorScheme);
+        }
+        // show-older button
+        return _buildShowOlderButton(older.length, theme, colorScheme);
+      },
+    );
+  }
+
+  Widget _buildSummaryStrip(int total, int avgSec, int missed,
+      ThemeData theme, ColorScheme colorScheme) {
+    final avgLabel = _durationLabel(avgSec);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildStatCell(total.toString(), 'Total calls',
+              MyContactsColors.cFF2196F3, theme),
+          _buildStatDivider(colorScheme),
+          _buildStatCell(
+              avgLabel.isEmpty ? '—' : avgLabel,
+              'Avg duration',
+              MyContactsColors.cFF4CAF50,
+              theme),
+          _buildStatDivider(colorScheme),
+          _buildStatCell(
+              missed.toString(), 'Missed', colorScheme.error, theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCell(
+      String value, String label, Color color, ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: color.withValues(alpha: 0.7))),
+      ],
+    );
+  }
+
+  Widget _buildStatDivider(ColorScheme cs) => Container(
+      height: 32,
+      width: 1,
+      color: cs.outlineVariant.withValues(alpha: 0.4));
+
+  Widget _buildMonthHeader(
+      String label, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface.withValues(alpha: 0.45),
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Divider(
+                height: 1,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.35)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineCallRow(
+      CallLogEntry entry, ThemeData theme, ColorScheme colorScheme) {
+    final isMissed = _isMissedType(entry.callType);
+    final color = _colorForType(entry.callType, colorScheme);
+    final icon = _iconForType(entry.callType);
+    final ts = DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
+    final dateLabel = _naturalDate(ts);
+    final durLabel = _durationLabel(entry.duration ?? 0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Colored direction indicator
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          // Date + duration
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: isMissed ? color : colorScheme.onSurface,
+                  ),
+                ),
+                if (durLabel.isNotEmpty)
+                  Text(
+                    durLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShowOlderButton(
+      int count, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() => _showOlderCalls = true),
+        icon: const Icon(Icons.expand_more_rounded, size: 18),
+        label: Text('Show $count older call${count == 1 ? '' : 's'}'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface.withValues(alpha: 0.6),
+          side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          minimumSize: const Size(double.infinity, 40),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecordingsTab(
+      ThemeData theme, ColorScheme colorScheme, ScrollController controller) {
+    if (widget.isLoadingRecordings) {
+      return Center(
+          child: CircularProgressIndicator(color: colorScheme.primary));
+    }
+    if (widget.recordings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic_off_rounded,
+                size: 48, color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text(
+              'No call recordings found',
+              style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.5)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayList = _filteredRecordings ?? widget.recordings;
+
+    return Column(
+      children: [
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              if (_activeRange == null) ...[
+                const Icon(Icons.date_range_rounded,
+                    size: 16, color: MyContactsColors.cFF7C3AED),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: _pickDateRange,
+                  child: Text(
+                    'Filter by date',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: MyContactsColors.cFF7C3AED,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: MyContactsColors.cFF7C3AED.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                const Icon(Icons.date_range_rounded,
+                    size: 16, color: MyContactsColors.cFF7C3AED),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${DateFormat('dd MMM yyyy').format(_activeRange!.start)} – ${DateFormat('dd MMM yyyy').format(_activeRange!.end)}'
+                    ' (${displayList.length})',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: MyContactsColors.cFF7C3AED,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _clearDateFilter,
+                  child: Icon(Icons.close_rounded,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        if (displayList.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No recordings in selected range',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.separated(
+              controller: controller,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: displayList.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, i) =>
+                  _buildRecordingTile(displayList[i], theme, colorScheme),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRecordingTile(
+      CallRecordingItem item, ThemeData theme, ColorScheme colorScheme) {
+    final isPlaying = _playingPath == item.path;
+    return ListTile(
+      dense: true,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      onTap: () => _togglePlayback(item),
+      title: Text(
+        item.fileName,
+        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        '${DateFormat('dd MMM yyyy, hh:mm a').format(item.modifiedAt)} • ${_formatBytes(item.sizeBytes)}',
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
+      ),
+      trailing: IconButton(
+        tooltip: isPlaying ? 'Stop playback' : 'Play recording',
+        onPressed: () => _togglePlayback(item),
+        icon: Icon(
+          isPlaying
+              ? Icons.pause_circle_filled_rounded
+              : Icons.play_circle_fill_rounded,
+          color: isPlaying
+              ? MyContactsColors.cFF4CAF50
+              : colorScheme.primary.withValues(alpha: 0.78),
+          size: 26,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lightweight discriminated union used to build the call timeline list.
+class _TimelineItem {
+  final bool isHeader;
+  final String? monthLabel;
+  final CallLogEntry? entry;
+
+  const _TimelineItem._({required this.isHeader, this.monthLabel, this.entry});
+
+  factory _TimelineItem.monthHeader(String label) =>
+      _TimelineItem._(isHeader: true, monthLabel: label);
+
+  factory _TimelineItem.call(CallLogEntry e) =>
+      _TimelineItem._(isHeader: false, entry: e);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CallHistorySheet extends StatefulWidget {
+  final Set<String> contactKeys;
+  final String contactName;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  const _CallHistorySheet({
+    required this.contactKeys,
+    required this.contactName,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  @override
+  State<_CallHistorySheet> createState() => _CallHistorySheetState();
+}
+
+class _CallHistorySheetState extends State<_CallHistorySheet> {
+  final _service = CallLogService();
+  List<CallLogEntry>? _entries;
+  bool _permissionDenied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // Delegate permission check+request entirely to the service
+    final granted = await _service.requestPermission();
+    if (!granted) {
+      if (mounted) setState(() => _permissionDenied = true);
+      return;
+    }
+    final all = await _service.getEntries(limit: 500);
+    final filtered = all
+        .where((e) {
+          final key = CallLogService.normalizeNumber(e.number);
+          return key.isNotEmpty && widget.contactKeys.contains(key);
+        })
+        .toList();
+    if (mounted) setState(() => _entries = filtered);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final colorScheme = widget.colorScheme;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      builder: (_, controller) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_rounded),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Call History — ${widget.contactName}',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (_entries != null)
+                    Text(
+                      '${_entries!.length} call${_entries!.length == 1 ? '' : 's'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: _buildBody(theme, colorScheme, controller)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(ThemeData theme, ColorScheme colorScheme,
+      ScrollController controller) {
+    if (_permissionDenied) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'Call log permission is required to view history.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+          ),
+        ),
+      );
+    }
+
+    if (_entries == null) {
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
+      );
+    }
+
+    if (_entries!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phone_missed_rounded,
+                size: 48, color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text(
+              'No call history found',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: controller,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _entries!.length,
+      itemBuilder: (_, index) =>
+          _buildTile(_entries![index], theme, colorScheme),
+    );
+  }
+
+  Widget _buildTile(
+      CallLogEntry entry, ThemeData theme, ColorScheme colorScheme) {
+    final (icon, color) = switch (entry.callType) {
+      CallType.incoming ||
+      CallType.wifiIncoming =>
+        (Icons.call_received_rounded, MyContactsColors.cFF4CAF50),
+      CallType.outgoing ||
+      CallType.wifiOutgoing =>
+        (Icons.call_made_rounded, MyContactsColors.cFF2196F3),
+      CallType.missed =>
+        (Icons.call_missed_rounded, colorScheme.error),
+      CallType.rejected ||
+      CallType.blocked =>
+        (Icons.call_missed_outgoing_rounded, MyContactsColors.cFFFF9800),
+      _ => (Icons.phone_rounded,
+          colorScheme.onSurface.withValues(alpha: 0.4)),
+    };
+
+    final duration = entry.duration ?? 0;
+    final ts = DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
+    final now = DateTime.now();
+    final diff = now.difference(ts);
+
+    String timeLabel;
+    if (diff.inMinutes < 1) {
+      timeLabel = 'Just now';
+    } else if (diff.inHours < 1) {
+      timeLabel = '${diff.inMinutes}m ago';
+    } else if (diff.inDays < 1) {
+      timeLabel = '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      timeLabel = '${diff.inDays}d ago';
+    } else {
+      timeLabel = DateFormat('MMM d, y').format(ts);
+    }
+
+    final isMissed = entry.callType == CallType.missed ||
+        entry.callType == CallType.rejected ||
+        entry.callType == CallType.blocked;
+
+    String subtitle = timeLabel;
+    if (!isMissed && duration > 0) {
+      final m = duration ~/ 60;
+      final s = duration % 60;
+      final dLabel = m > 0 ? (s > 0 ? '${m}m ${s}s' : '${m}m') : '${s}s';
+      subtitle = '$dLabel · $timeLabel';
+    }
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        entry.number ?? '—',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: isMissed ? color : colorScheme.onSurface,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+

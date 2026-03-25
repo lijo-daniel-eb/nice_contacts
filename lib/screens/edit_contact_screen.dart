@@ -387,7 +387,9 @@ class _EditContactScreenState extends State<EditContactScreen> {
         withThumbnail: true,
         withPhoto: false,
       );
-      nav.pop(updated);
+      // Fall back to the saved contact if the re-fetch returns null
+      // (can happen on some devices during sync delay).
+      nav.pop(updated ?? saved);
     } catch (e) {
       // Guard setState — widget may have been disposed if the user
       // dismissed the screen while the platform call was in-flight.
