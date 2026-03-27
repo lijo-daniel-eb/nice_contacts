@@ -1034,6 +1034,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                       ),
                       _buildQuickAction(
                         context,
+                        icon: Icons.qr_code_rounded,
+                        label: 'QR Code',
+                        color: MyContactsColors.cFFF4A300,
+                        onTap: _showQrCode,
+                      ),
+                      _buildQuickAction(
+                        context,
                         icon: Icons.history_rounded,
                         label: 'History',
                         color: MyContactsColors.cFF7C3AED,
@@ -1045,13 +1052,6 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
                         label: 'Recordings',
                         color: MyContactsColors.cFF00BCD4,
                         onTap: _showRecordingsPanel,
-                      ),
-                      _buildQuickAction(
-                        context,
-                        icon: Icons.qr_code_rounded,
-                        label: 'QR Code',
-                        color: MyContactsColors.cFFF4A300,
-                        onTap: _showQrCode,
                       ),
                     ],
                   ),
