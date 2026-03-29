@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:my_contacts/screens/contact_detail_screen.dart';
 import 'package:my_contacts/services/call_log_service.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
+import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -811,8 +812,7 @@ class _RecentsScreenState extends State<RecentsScreen>
   }
 
   Future<void> _makeCall(String number) async {
-    final uri = Uri(scheme: 'tel', path: number);
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    await DirectCallService.call(number);
   }
 
   String _formatTimestamp(DateTime timestamp) {
