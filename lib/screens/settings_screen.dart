@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:my_contacts/theme/my_contacts_theme.dart';
 import 'package:my_contacts/screens/help_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
+import 'package:my_contacts/services/vcf_export_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -100,6 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             _buildDefaultTabSetting(theme, colorScheme),
             const SizedBox(height: 16),
             _buildSectionTitle('Data', theme, colorScheme),
+            _buildExportContactsSetting(theme, colorScheme),
             _buildCallRecordingsPathSetting(theme, colorScheme),
             _buildClearRecentsSetting(theme, colorScheme),
             _buildClearFavouritesSetting(theme, colorScheme),
@@ -394,6 +399,200 @@ class _SettingsScreenState extends State<SettingsScreen>
       theme: theme,
       onTap: () => _showDefaultTabDialog(colorScheme, tabs),
     );
+  }
+
+  Widget _buildExportContactsSetting(ThemeData theme, ColorScheme colorScheme) {
+    return _buildSettingTile(
+      icon: Icons.upload_file_rounded,
+      title: 'Export Contacts',
+      subtitle: 'Save all contacts as a .vcf file',
+      colorScheme: colorScheme,
+      theme: theme,
+      onTap: _exportContacts,
+    );
+  }
+
+  Future<void> _exportContacts() async {
+    if (!mounted) return;
+    final snapshot = _repo.contacts;
+    if (snapshot.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No contacts to export')),
+      );
+      return;
+    }
+
+    final total = snapshot.length;
+    int fetched = 0;
+    bool isDone = false;
+    int exportedCount = 0;
+    String? exportedPath;
+    String? exportError;
+    void Function(void Function())? setDialogState;
+
+    // ignore: unawaited_futures
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          setDialogState = setS;
+          final cs = Theme.of(ctx).colorScheme;
+          final tt = Theme.of(ctx).textTheme;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.upload_file_rounded,
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text('Export Contacts'),
+              ],
+            ),
+            content: exportError != null
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: cs.error,
+                        size: 52,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Export failed',
+                        style: tt.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        exportError!,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  )
+                : isDone
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: cs.primary,
+                        size: 56,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$exportedCount contacts exported',
+                        style: tt.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap "Share / Save" to choose where to save the file',
+                        textAlign: TextAlign.center,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LinearProgressIndicator(
+                        value: total == 0 ? null : fetched / total,
+                        color: cs.primary,
+                        backgroundColor: cs.primaryContainer,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        fetched == 0
+                            ? 'Preparing export…'
+                            : 'Fetching photos… $fetched / $total',
+                        style: tt.bodyMedium,
+                      ),
+                    ],
+                  ),
+            actions: isDone
+                ? [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Dismiss'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        await Share.shareXFiles(
+                          [
+                            XFile(
+                              exportedPath!,
+                              mimeType: 'text/x-vcard',
+                              name: 'contacts_export.vcf',
+                            ),
+                          ],
+                          subject: 'Contacts Export',
+                        );
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 18),
+                      label: const Text('Share / Save'),
+                    ),
+                  ]
+                : exportError != null
+                ? [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Close'),
+                    ),
+                  ]
+                : const [],
+          );
+        },
+      ),
+    );
+
+    try {
+      // Re-fetch each contact with full photo data so the VCF includes photos.
+      final fullContacts = <Contact>[];
+      for (final c in snapshot) {
+        final full = await FlutterContacts.getContact(
+          c.id,
+          withProperties: true,
+          withPhoto: true,
+        );
+        if (full != null) fullContacts.add(full);
+        fetched++;
+        setDialogState?.call(() {});
+      }
+
+      final service = VcfExportService();
+      final path = await service.exportContacts(fullContacts);
+      exportedPath = path;
+      exportedCount = fullContacts.length;
+      setDialogState?.call(() => isDone = true);
+    } on FileSystemException catch (e) {
+      if (!mounted) return;
+      setDialogState?.call(() => exportError = e.osError?.message ?? e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setDialogState?.call(() => exportError = e.toString());
+    }
   }
 
   Widget _buildClearRecentsSetting(ThemeData theme, ColorScheme colorScheme) {
