@@ -10,6 +10,7 @@ import 'package:my_contacts/screens/help_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/preferences_service.dart';
 import 'package:my_contacts/services/vcf_export_service.dart';
+import 'package:my_contacts/services/vcf_import_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -104,6 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             _buildDefaultTabSetting(theme, colorScheme),
             const SizedBox(height: 16),
             _buildSectionTitle('Data', theme, colorScheme),
+            _buildImportContactsSetting(theme, colorScheme),
             _buildExportContactsSetting(theme, colorScheme),
             _buildCallRecordingsPathSetting(theme, colorScheme),
             _buildClearRecentsSetting(theme, colorScheme),
@@ -399,6 +401,170 @@ class _SettingsScreenState extends State<SettingsScreen>
       theme: theme,
       onTap: () => _showDefaultTabDialog(colorScheme, tabs),
     );
+  }
+
+  Widget _buildImportContactsSetting(ThemeData theme, ColorScheme colorScheme) {
+    return _buildSettingTile(
+      icon: Icons.download_for_offline_rounded,
+      title: 'Import Contacts',
+      subtitle: 'Import contacts from a .vcf file',
+      colorScheme: colorScheme,
+      theme: theme,
+      onTap: _importContacts,
+    );
+  }
+
+  Future<void> _importContacts() async {
+    if (!mounted) return;
+
+    // Browse for a VCF file.
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['vcf'],
+      allowMultiple: false,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    if (!mounted) return;
+
+    int done = 0;
+    int total = 0;
+    bool isDone = false;
+    VcfImportResult? importResult;
+    String? importError;
+    void Function(void Function())? setDialogState;
+
+    // ignore: unawaited_futures
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          setDialogState = setS;
+          final cs = Theme.of(ctx).colorScheme;
+          final tt = Theme.of(ctx).textTheme;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.download_for_offline_rounded,
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text('Import Contacts'),
+              ],
+            ),
+            content: importError != null
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.error_outline_rounded,
+                          color: cs.error, size: 52),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Import failed',
+                        style: tt.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        importError!,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  )
+                : isDone
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          color: cs.primary, size: 56),
+                      const SizedBox(height: 12),
+                      Text(
+                        '${importResult!.imported} contacts imported',
+                        style: tt.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      if (importResult!.skipped > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${importResult!.skipped} entries skipped',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LinearProgressIndicator(
+                        value: total == 0 ? null : done / total,
+                        color: cs.primary,
+                        backgroundColor: cs.primaryContainer,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        total == 0
+                            ? 'Reading file…'
+                            : 'Importing… $done / $total',
+                        style: tt.bodyMedium,
+                      ),
+                    ],
+                  ),
+            actions: isDone || importError != null
+                ? [
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Done'),
+                    ),
+                  ]
+                : const [],
+          );
+        },
+      ),
+    );
+
+    try {
+      final service = VcfImportService();
+      final result = await service.importFromFile(
+        filePath,
+        onProgress: (d, t) {
+          done = d;
+          total = t;
+          setDialogState?.call(() {});
+        },
+      );
+      importResult = result;
+      setDialogState?.call(() => isDone = true);
+      // Refresh the repository so the new contacts are visible immediately.
+      _repo.refresh();
+    } on FileSystemException catch (e) {
+      if (!mounted) return;
+      setDialogState
+          ?.call(() => importError = e.osError?.message ?? e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setDialogState?.call(() => importError = e.toString());
+    }
   }
 
   Widget _buildExportContactsSetting(ThemeData theme, ColorScheme colorScheme) {
