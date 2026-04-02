@@ -532,15 +532,20 @@ class _RecentsScreenState extends State<RecentsScreen>
     if (canCall) {
       tile = Dismissible(
         key: ValueKey('call_${entry.number}_${entry.timestamp.millisecondsSinceEpoch}'),
-        direction: DismissDirection.startToEnd,
-        confirmDismiss: (_) async {
-          _makeCall(number);
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            _makeCall(number);
+          } else {
+            _sendSms(number);
+          }
           return false; // keep the tile in the list
         },
         background: Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           decoration: BoxDecoration(
-            color: MyContactsColors.cFF4CAF50,
+            gradient: const LinearGradient(
+              colors: [MyContactsColors.cFF43E97B, MyContactsColors.cFF38F9D7],
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           alignment: Alignment.centerLeft,
@@ -549,15 +554,41 @@ class _RecentsScreenState extends State<RecentsScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.call_rounded, color: MyContactsColors.white, size: 26),
-              SizedBox(width: 10),
+              SizedBox(width: 6),
               Text(
                 'Call',
                 style: TextStyle(
                   color: MyContactsColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
               ),
+            ],
+          ),
+        ),
+        secondaryBackground: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [MyContactsColors.cFF2D6CDF, MyContactsColors.cFF1565C0],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Message',
+                style: TextStyle(
+                  color: MyContactsColors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.message_rounded, color: MyContactsColors.white, size: 26),
             ],
           ),
         ),
@@ -674,7 +705,10 @@ class _RecentsScreenState extends State<RecentsScreen>
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    return Padding(
+    final number = entry.number;
+    final canCall = number.isNotEmpty;
+
+    Widget tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
         color: colorScheme.surfaceContainerLowest,
@@ -788,6 +822,75 @@ class _RecentsScreenState extends State<RecentsScreen>
         ),
       ),
     );
+
+    if (canCall) {
+      tile = Dismissible(
+        key: ValueKey('frequent_${entry.number}'),
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            _makeCall(number);
+          } else {
+            _sendSms(number);
+          }
+          return false;
+        },
+        background: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [MyContactsColors.cFF43E97B, MyContactsColors.cFF38F9D7],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 24),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.call_rounded, color: MyContactsColors.white, size: 26),
+              SizedBox(width: 6),
+              Text(
+                'Call',
+                style: TextStyle(
+                  color: MyContactsColors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        secondaryBackground: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [MyContactsColors.cFF2D6CDF, MyContactsColors.cFF1565C0],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Message',
+                style: TextStyle(
+                  color: MyContactsColors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.message_rounded, color: MyContactsColors.white, size: 26),
+            ],
+          ),
+        ),
+        child: tile,
+      );
+    }
+
+    return tile;
   }
 
   Widget _buildEntryAvatar(
@@ -813,6 +916,13 @@ class _RecentsScreenState extends State<RecentsScreen>
 
   Future<void> _makeCall(String number) async {
     await DirectCallService.call(number);
+  }
+
+  Future<void> _sendSms(String number) async {
+    final uri = Uri(scheme: 'sms', path: number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 
   String _formatTimestamp(DateTime timestamp) {
