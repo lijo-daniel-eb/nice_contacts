@@ -9,6 +9,7 @@ import 'package:my_contacts/screens/edit_contact_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/direct_call_service.dart';
 import 'package:my_contacts/services/preferences_service.dart';
+import 'package:my_contacts/widgets/ad_banner_widget.dart';
 import 'package:my_contacts/widgets/contact_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -46,6 +47,7 @@ class ContactsScreenState extends State<ContactsScreen>
 
   static const double _sectionHeaderHeight = 54.0;
   static const double _contactTileHeight = 72.0;
+  static const double _adBannerHeight = 80.0;
 
   @override
   bool get wantKeepAlive => true;
@@ -160,12 +162,17 @@ class ContactsScreenState extends State<ContactsScreen>
     final grouped = _groupContacts();
     final items = <_ListItem>[];
     final indices = <String, int>{};
+    int contactCount = 0;
 
     for (final entry in grouped.entries) {
       indices[entry.key] = items.length;
       items.add(_ListItem(type: _ListItemType.header, letter: entry.key));
       for (final contact in entry.value) {
         items.add(_ListItem(type: _ListItemType.contact, contact: contact));
+        contactCount++;
+        if (contactCount % 5 == 0) {
+          items.add(_ListItem(type: _ListItemType.ad));
+        }
       }
     }
 
@@ -602,9 +609,13 @@ class ContactsScreenState extends State<ContactsScreen>
     // Calculate pixel offset: sum heights of all items before this index
     double offset = 0;
     for (int i = 0; i < targetIndex; i++) {
-      offset += _flatItems[i].type == _ListItemType.header
-          ? _sectionHeaderHeight
-          : _contactTileHeight;
+      if (_flatItems[i].type == _ListItemType.header) {
+        offset += _sectionHeaderHeight;
+      } else if (_flatItems[i].type == _ListItemType.ad) {
+        offset += _adBannerHeight;
+      } else {
+        offset += _contactTileHeight;
+      }
     }
 
     _scrollController.animateTo(
@@ -635,14 +646,18 @@ class ContactsScreenState extends State<ContactsScreen>
               padding: const EdgeInsets.only(bottom: 20),
               itemCount: _flatItems.length,
               itemExtentBuilder: (index, __) {
-                return _flatItems[index].type == _ListItemType.header
-                    ? _sectionHeaderHeight
-                    : _contactTileHeight;
+                final type = _flatItems[index].type;
+                if (type == _ListItemType.header) return _sectionHeaderHeight;
+                if (type == _ListItemType.ad) return _adBannerHeight;
+                return _contactTileHeight;
               },
               itemBuilder: (context, index) {
                 final item = _flatItems[index];
                 if (item.type == _ListItemType.header) {
                   return _buildSectionHeader(item.letter!, colorScheme);
+                }
+                if (item.type == _ListItemType.ad) {
+                  return _buildAdBanner(colorScheme, theme);
                 }
                 return _buildContactTile(item.contact!, theme, colorScheme);
               },
@@ -683,6 +698,16 @@ class ContactsScreenState extends State<ContactsScreen>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildAdBanner(ColorScheme colorScheme, ThemeData theme) {
+    return const Align(
+      alignment: Alignment.center,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: AdBannerWidget(),
+      ),
     );
   }
 
@@ -933,7 +958,7 @@ class ContactsScreenState extends State<ContactsScreen>
 
 // ─── Helper types for flat list ───
 
-enum _ListItemType { header, contact }
+enum _ListItemType { header, contact, ad }
 
 class _ListItem {
   final _ListItemType type;

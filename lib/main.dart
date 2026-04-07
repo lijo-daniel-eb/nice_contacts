@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:my_contacts/screens/home_screen.dart';
 import 'package:my_contacts/services/contacts_repository.dart';
 import 'package:my_contacts/services/fake_call_scheduler_service.dart';
@@ -8,6 +9,7 @@ import 'package:my_contacts/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PreferencesService().init();
+  await MobileAds.instance.initialize();
   // Start loading contacts early — all screens share this cache
   ContactsRepository().ensureLoaded();
   runApp(const MyApp());
