@@ -1,3 +1,4 @@
+import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -17,7 +18,7 @@ class AdBannerWidget extends StatefulWidget {
 
 class _AdBannerWidgetState extends State<AdBannerWidget> {
   // ── Replace these with your real ad-unit IDs before publishing ──────────
-  static const _androidAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  static const _androidAdUnitId = 'ca-app-pub-1046301270032418/5019674414';
   static const _iosAdUnitId = 'ca-app-pub-3940256099942544/2934735716';
   // ────────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
           setState(() => _adLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
+          dev.log('AdMob failed to load: ${error.code} – ${error.message}',
+              name: 'AdBannerWidget');
           ad.dispose();
         },
       ),
