@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 class ContactRingtoneService {
   ContactRingtoneService._();
 
-  static const _channel = MethodChannel('com.lijojolly.my_contacts/ringtone');
+  static const _channel = MethodChannel('com.lijojolly.nice_contacts/ringtone');
 
   /// Registers [filePath] in MediaStore and assigns it as the custom ringtone
   /// for the contact identified by [contactId].

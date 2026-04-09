@@ -5,12 +5,12 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
-import 'package:my_contacts/screens/help_screen.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/preferences_service.dart';
-import 'package:my_contacts/services/vcf_export_service.dart';
-import 'package:my_contacts/services/vcf_import_service.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/screens/help_screen.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/services/vcf_export_service.dart';
+import 'package:nice_contacts/services/vcf_import_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatefulWidget {

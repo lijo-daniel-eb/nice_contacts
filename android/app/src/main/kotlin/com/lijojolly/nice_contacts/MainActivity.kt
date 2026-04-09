@@ -1,4 +1,4 @@
-package com.lijojolly.my_contacts
+package com.lijojolly.nice_contacts
 
 import android.content.ContentUris
 import android.content.ContentValues
@@ -18,9 +18,9 @@ import java.io.File
 import java.io.FileInputStream
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.lijojolly.my_contacts/direct_call"
-    private val RINGTONE_CHANNEL = "com.lijojolly.my_contacts/ringtone"
-    private val CONTACT_CHANNEL = "com.lijojolly.my_contacts/contact_ops"
+    private val CHANNEL = "com.lijojolly.nice_contacts/direct_call"
+    private val RINGTONE_CHANNEL = "com.lijojolly.nice_contacts/ringtone"
+    private val CONTACT_CHANNEL = "com.lijojolly.nice_contacts/contact_ops"
     private val CALL_PHONE_PERMISSION_CODE = 100
     private var pendingNumber: String? = null
 

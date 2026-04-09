@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:my_contacts/screens/home_screen.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/fake_call_scheduler_service.dart';
-import 'package:my_contacts/services/preferences_service.dart';
-import 'package:my_contacts/theme/app_theme.dart';
+import 'package:nice_contacts/screens/home_screen.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/fake_call_scheduler_service.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

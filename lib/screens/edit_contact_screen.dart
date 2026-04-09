@@ -3,12 +3,12 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/services/contact_insert_service.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/preferences_service.dart';
-import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:nice_contacts/services/contact_insert_service.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/widgets/contact_avatar.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Screen (or bottom sheet) for editing an existing contact or creating a new one.

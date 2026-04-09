@@ -1,4 +1,4 @@
-name: my_contacts
+name: nice_contacts
 description: "A smart contact app with useful dashboards."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.

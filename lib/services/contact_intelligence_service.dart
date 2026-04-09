@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
 
 /// On-device AI-like intelligence for contacts analysis.
 class ContactIntelligenceService {

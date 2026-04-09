@@ -4,11 +4,11 @@ import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/widgets/contact_avatar.dart';
 
 /// A realistic fake incoming/outgoing call screen with ringing animation,
 /// accept/decline buttons, and an in-call UI with mute/speaker/keypad controls.

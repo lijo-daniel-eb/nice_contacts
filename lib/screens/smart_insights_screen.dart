@@ -1,13 +1,13 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/screens/contact_detail_screen.dart';
-import 'package:my_contacts/services/contact_intelligence_service.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/preferences_service.dart';
-import 'package:my_contacts/widgets/contact_avatar.dart';
+import 'package:nice_contacts/screens/contact_detail_screen.dart';
+import 'package:nice_contacts/services/contact_intelligence_service.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/widgets/contact_avatar.dart';
 
 class SmartInsightsScreen extends StatefulWidget {
   const SmartInsightsScreen({super.key});

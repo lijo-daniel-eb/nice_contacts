@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/screens/fake_call_screen.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
-import 'package:my_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/screens/fake_call_screen.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
 
 class FakeCallSchedulerService {
   static final FakeCallSchedulerService _instance =

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class CallRecordingItem {

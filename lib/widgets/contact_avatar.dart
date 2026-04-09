@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:my_contacts/services/contacts_repository.dart';
+import 'package:nice_contacts/services/contacts_repository.dart';
 
 /// A beautiful contact avatar that shows the contact's photo or initials
 /// with a gradient background derived from the contact's name.

@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// Falls back to the dialer (ACTION_DIAL) on other platforms.
 class DirectCallService {
   static const _channel = MethodChannel(
-    'com.lijojolly.my_contacts/direct_call',
+    'com.lijojolly.nice_contacts/direct_call',
   );
 
   static Future<void> call(String number) async {

@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});

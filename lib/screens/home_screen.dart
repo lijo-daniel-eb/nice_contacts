@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:my_contacts/theme/my_contacts_theme.dart';
-import 'package:my_contacts/screens/contacts_screen.dart';
-import 'package:my_contacts/screens/favourites_screen.dart';
-import 'package:my_contacts/screens/recents_screen.dart';
-import 'package:my_contacts/screens/settings_screen.dart';
-import 'package:my_contacts/screens/smart_insights_screen.dart';
-import 'package:my_contacts/services/preferences_service.dart';
+import 'package:nice_contacts/theme/my_contacts_theme.dart';
+import 'package:nice_contacts/screens/contacts_screen.dart';
+import 'package:nice_contacts/screens/favourites_screen.dart';
+import 'package:nice_contacts/screens/recents_screen.dart';
+import 'package:nice_contacts/screens/settings_screen.dart';
+import 'package:nice_contacts/screens/smart_insights_screen.dart';
+import 'package:nice_contacts/services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

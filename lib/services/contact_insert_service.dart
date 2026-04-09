@@ -5,7 +5,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 
 class ContactInsertService {
   static const _channel = MethodChannel(
-    'com.lijojolly.my_contacts/contact_ops',
+    'com.lijojolly.nice_contacts/contact_ops',
   );
 
   static Future<Contact> insertContactSafely(Contact contact) async {
