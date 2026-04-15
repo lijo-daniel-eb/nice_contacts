@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.lijojolly" "\0"
-            VALUE "FileDescription", "my_contacts" "\0"
+            VALUE "FileDescription", "nice_contacts" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "my_contacts" "\0"
+            VALUE "InternalName", "nice_contacts" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.lijojolly. All rights reserved." "\0"
-            VALUE "OriginalFilename", "my_contacts.exe" "\0"
-            VALUE "ProductName", "my_contacts" "\0"
+            VALUE "OriginalFilename", "nice_contacts.exe" "\0"
+            VALUE "ProductName", "nice_contacts" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
