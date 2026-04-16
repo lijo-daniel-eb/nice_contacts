@@ -188,7 +188,7 @@ class HelpScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Everything you can do in Smart Contacts, explained clearly.',
+                          'Everything you can do in NICE Contacts, explained clearly.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: MyContactsColors.white.withValues(alpha: 0.9),
                             height: 1.4,

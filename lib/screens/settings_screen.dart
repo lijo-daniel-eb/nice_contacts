@@ -914,9 +914,17 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Smart Contacts',
+              'NICE Contacts',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Next-gen Integrated Contact Experience',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.primary,
+                fontStyle: FontStyle.italic,
               ),
             ),
             const SizedBox(height: 4),

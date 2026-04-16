@@ -281,7 +281,7 @@ class ContactsScreenState extends State<ContactsScreen>
                   colors: [colorScheme.primary, colorScheme.tertiary],
                 ).createShader(bounds),
                 child: Text(
-                  'Smart Contacts',
+                  'NICE Contacts',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: MyContactsColors.white,

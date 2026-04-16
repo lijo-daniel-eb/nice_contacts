@@ -1,6 +1,6 @@
 {
-    "name": "Smart Contacts",
-    "short_name": "Smart Contacts",
+    "name": "NICE Contacts",
+    "short_name": "NICE Contacts",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

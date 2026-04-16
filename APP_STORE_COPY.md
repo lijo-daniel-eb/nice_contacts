@@ -15,7 +15,7 @@
 5. Fake call is niche but memorable and differentiating.
 
 ## Short Description Options
-1. Smart contacts manager with AI insights, duplicate cleanup, and fast search.
+1. NICE Contacts manager with AI insights, duplicate cleanup, and fast search.
 2. Organize contacts smarter: find duplicates, auto-groups, and quick actions.
 3. Powerful contact app with smart insights, cleanup tools, and call utilities.
 
