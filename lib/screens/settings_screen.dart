@@ -921,7 +921,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              'Next-gen Integrated Contact Experience',
+              'Next-Gen Intelligent Contact Engine',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.primary,
                 fontStyle: FontStyle.italic,

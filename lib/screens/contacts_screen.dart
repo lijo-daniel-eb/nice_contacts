@@ -289,7 +289,7 @@ class ContactsScreenState extends State<ContactsScreen>
                 ),
               ),
               Text(
-                'All your people, one place',
+                'Next-Gen Intelligent Contact Engine',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
